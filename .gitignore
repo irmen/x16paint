@@ -1,0 +1,8 @@
+*.asm
+*.[pP][rR][gG]
+*.vice-mon-list
+*.bin
+*.pal
+*.zip
+*.iml
+.idea
