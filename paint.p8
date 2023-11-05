@@ -4,10 +4,6 @@
 %import string
 
 main {
-    bool mouse_button_pressed
-    uword mouse_prev_x
-    uword mouse_prev_y
-
     sub start() {
         ; screen mode
         void cx16.screen_mode(128, false)
@@ -31,15 +27,14 @@ main {
         txt.color(14)
         txt.print("\n\n\n\n    Instructions:\n\n\n")
         txt.print("    - Use the mouse to paint stuff.\n")
-        txt.print("      left/right=draw, middle=fill.\n\n")
-        txt.print("    - TAB toggles the menus on/off.\n\n\n")
+        txt.print("      Left/right button = color 1/2.\n")
+        txt.print("      Middle button = erase.\n\n")
+        txt.print("    - TAB toggles the menus on/off.\n\n\n\n")
         txt.print("    Click any mouse button to start.")
         while not cx16.mouse_pos() { }
         while cx16.mouse_pos() { }
-        menu.toggle()
-        menu.draw()
+        menu.toggle()   ; turn menu OFF
 
-        ; main loop
         repeat {
             handle_mouse()
             handle_keypress()
@@ -47,44 +42,16 @@ main {
     }
 
     sub handle_mouse() {
-        ubyte buttons = cx16.mouse_pos()
+        cx16.r3L = cx16.mouse_pos()
         if menu.active {
-            mouse_button_pressed = false
-            menu.mouse(buttons, cx16.r0, cx16.r1)
+            drawing.mouse_button_pressed = false
+            menu.mouse(cx16.r3L, cx16.r0, cx16.r1)
             return
         }
-        if buttons {
-            ; handle mouse clicks in draw mode
-            if buttons==4 {
-                gfx2.fill(cx16.r0, cx16.r1, drawing.selected_color1)
-            }
-            else if mouse_button_pressed {
-                ; draw line to new position
-                uword from_x = mouse_prev_x
-                uword from_y = mouse_prev_y
-                mouse_prev_x = cx16.r0
-                mouse_prev_y = cx16.r1
-                cx16.GRAPH_set_colors(color_for_button(), 0, 0)
-                cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
-            } else {
-                ; start new position
-                mouse_prev_x = cx16.r0
-                mouse_prev_y = cx16.r1
-                cx16.FB_cursor_position(cx16.r0, cx16.r1)
-                cx16.FB_set_pixel(color_for_button())
-                mouse_button_pressed = true
-            }
-        } else {
-            mouse_button_pressed = false
-        }
-
-        sub color_for_button() -> ubyte {
-            when buttons {
-                1 -> return drawing.selected_color1
-                2 -> return drawing.selected_color2
-                else -> return 0
-            }
-        }
+        if cx16.r3L
+            drawing.mouse(cx16.r3L, cx16.r0, cx16.r1)
+        else
+            drawing.mouse_button_pressed = false
     }
 
     sub handle_keypress() {
@@ -99,12 +66,69 @@ main {
 }
 
 drawing {
+    const ubyte TOOL_DRAW = 0
+    const ubyte TOOL_RECT = 1
+    const ubyte TOOL_CIRCLE = 2
+    const ubyte TOOL_ERASE = 3         ; keep this, even though middle mouse button is the same
+    const ubyte TOOL_LINE = 4
+    const ubyte TOOL_BOX = 5
+    const ubyte TOOL_DISC = 6
+    const ubyte TOOL_FILL = 7
+
+    ubyte active_tool = TOOL_DRAW
     ubyte selected_color1 = 5
     ubyte selected_color2 = 2
+    bool magnification = false
+    uword mouse_prev_x
+    uword mouse_prev_y
+    bool mouse_button_pressed
 
     sub clear() {
         cx16.GRAPH_set_colors(selected_color1,0,selected_color2)
         cx16.GRAPH_clear()
+    }
+
+    sub color_for_button(ubyte buttons) -> ubyte {
+        when buttons {
+            1 -> return selected_color1
+            2 -> return selected_color2
+            else -> return 0
+        }
+    }
+
+    sub mouse(ubyte buttons, uword mx, uword my) {
+        if buttons==0
+            return
+
+        when active_tool {
+            drawing.TOOL_DRAW -> {
+                if mouse_button_pressed {
+                    ; draw line to new position
+                    uword from_x = mouse_prev_x
+                    uword from_y = mouse_prev_y
+                    mouse_prev_x = cx16.r0
+                    mouse_prev_y = cx16.r1
+                    cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
+                    cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
+                } else {
+                    ; start new position
+                    mouse_prev_x = cx16.r0
+                    mouse_prev_y = cx16.r1
+                    cx16.FB_cursor_position(cx16.r0, cx16.r1)
+                    cx16.FB_set_pixel(color_for_button(buttons))
+                    mouse_button_pressed = true
+                }
+            }
+            drawing.TOOL_RECT -> { /* todo */ }
+            drawing.TOOL_CIRCLE -> { /* todo */ }
+            drawing.TOOL_ERASE -> { /* todo */ }
+            drawing.TOOL_LINE -> { /* todo */ }
+            drawing.TOOL_BOX -> { /* todo */ }
+            drawing.TOOL_DISC -> { /* todo */ }
+            drawing.TOOL_FILL -> {
+                gfx2.fill(cx16.r0, cx16.r1, color_for_button(buttons))
+            }
+        }
     }
 }
 
@@ -118,9 +142,10 @@ menu {
     ubyte[4] commands_x = [26, 26, 26, 26]
     ubyte[4] commands_y = [4, 6, 8, 10]
 
-    str[9] tools_names = ["Draw", "Rectangle", "Circle", "Erase", "Magnify", "Line", "Box", "Disc", "Fill"]
-    ubyte[9] tools_x = [6, 6, 6, 6, 6, 17, 18, 17, 17]
-    ubyte[9] tools_y = [4, 6, 8, 10, 12, 4, 6, 8, 10]
+    str[9] tools_names = ["Draw", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Magnification"]
+    uword[9] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.magnify]
+    ubyte[9] tools_x = [6, 6, 6, 6, 17, 18, 17, 17, 6]
+    ubyte[9] tools_y = [4, 6, 8, 10, 4, 6, 8, 10, 14]
 
     sub draw() {
         txt.color(14)
@@ -137,7 +162,7 @@ menu {
             txt.plot(tools_x[cx16.r0L], tools_y[cx16.r0L])
             txt.print(tools_names[cx16.r0L])
         }
-        txt.setcc2(5,4,sc:'✓',7)
+        tools.draw_active_checkmark()
     }
 
     sub draw_commands() {
@@ -267,11 +292,15 @@ menu {
                 }
             }
             print_selected_colors()
+            wait_release_mousebuttons()
             return
         }
 
-        if buttons!=1
-            return      ; only support left mouse button to click menu entries
+        if buttons!=1 {
+            ; only support left mouse button to click menu entries
+            wait_release_mousebuttons()
+            return
+        }
 
         if mx >= commands_x[0]*8 {
             ; possibly command clicked
@@ -281,12 +310,27 @@ menu {
                 cx16.r3 = cx16.r1 + string.length(commands_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
                     void callfar(cx16.getrambank(), commands_handlers[cx16.r0L], 0)       ; indirect JSR
+                    wait_release_mousebuttons()
                     return
                 }
             }
         } else if mx >= tools_x[0]*8 {
             ; possibly tool clicked
+            for cx16.r0L in 0 to len(tools_names)-1 {
+                cx16.r1 = tools_x[cx16.r0L]*8
+                cx16.r2 = tools_y[cx16.r0L]*8
+                cx16.r3 = cx16.r1 + string.length(tools_names[cx16.r0L])*8
+                if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
+                    void callfar(cx16.getrambank(), tools_handlers[cx16.r0L], 0)       ; indirect JSR
+                    wait_release_mousebuttons()
+                    return
+                }
+            }
         }
+    }
+
+    sub wait_release_mousebuttons() {
+        while cx16.mouse_pos() { }
     }
 }
 
@@ -320,5 +364,83 @@ commands {
         } else {
             menu.draw()
         }
+    }
+}
+
+tools {
+    sub clear_checkmarks() {
+        ; clear all tool checkmarks (except magnifier)
+        txt.setcc2(5,4,sc:' ',7)
+        txt.setcc2(5,6,sc:' ',7)
+        txt.setcc2(5,8,sc:' ',7)
+        txt.setcc2(5,10,sc:' ',7)
+        txt.setcc2(21,4,sc:' ',7)
+        txt.setcc2(21,6,sc:' ',7)
+        txt.setcc2(21,8,sc:' ',7)
+        txt.setcc2(21,10,sc:' ',7)
+    }
+
+    sub draw_active_checkmark() {
+        clear_checkmarks()
+        when drawing.active_tool {
+            drawing.TOOL_DRAW -> txt.setcc2(5,4,sc:'✓',7)
+            drawing.TOOL_RECT -> txt.setcc2(5,6,$69,2)
+            drawing.TOOL_CIRCLE -> txt.setcc2(5,8,$69,2)
+            drawing.TOOL_ERASE -> txt.setcc2(5,10,$69,2)
+            drawing.TOOL_LINE -> txt.setcc2(21,4,$69,2)
+            drawing.TOOL_BOX -> txt.setcc2(21,6,$69,2)
+            drawing.TOOL_DISC -> txt.setcc2(21,8,$69,2)
+            drawing.TOOL_FILL -> txt.setcc2(21,10,sc:'✓',7)
+        }
+
+        if drawing.magnification
+            txt.setcc2(5,14,$69,2)
+        else
+            txt.setcc2(5,14,sc:' ',7)
+    }
+
+    sub draw() {
+        drawing.active_tool = drawing.TOOL_DRAW
+        draw_active_checkmark()
+    }
+
+    sub circle() {
+        drawing.active_tool = drawing.TOOL_CIRCLE
+        draw_active_checkmark()
+    }
+
+    sub disc() {
+        drawing.active_tool = drawing.TOOL_DISC
+        draw_active_checkmark()
+    }
+
+    sub erase() {
+        drawing.active_tool = drawing.TOOL_ERASE
+        draw_active_checkmark()
+    }
+
+    sub line() {
+        drawing.active_tool = drawing.TOOL_LINE
+        draw_active_checkmark()
+    }
+
+    sub rect() {
+        drawing.active_tool = drawing.TOOL_RECT
+        draw_active_checkmark()
+    }
+
+    sub box() {
+        drawing.active_tool = drawing.TOOL_BOX
+        draw_active_checkmark()
+    }
+
+    sub fill() {
+        drawing.active_tool = drawing.TOOL_FILL
+        draw_active_checkmark()
+    }
+
+    sub magnify() {
+        drawing.magnification = not drawing.magnification
+        draw_active_checkmark()
     }
 }
