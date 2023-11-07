@@ -30,6 +30,7 @@ main {
         txt.print("    - Use the mouse to paint stuff.\n")
         txt.print("      Left/right button = color 1/2.\n")
         txt.print("      Middle button = erase.\n\n")
+        txt.print("    - Only 320*240 with 256 colors.\n\n")
         txt.print("    - TAB toggles the menus on/off.\n\n\n\n")
         txt.print("    Click any mouse button to start.")
         while not cx16.mouse_pos() { }
@@ -70,7 +71,7 @@ drawing {
     const ubyte TOOL_DRAW = 0
     const ubyte TOOL_RECT = 1
     const ubyte TOOL_CIRCLE = 2
-    const ubyte TOOL_ERASE = 3         ; keep this, even though middle mouse button is the same
+    const ubyte TOOL_ERASE = 3         ; keep this, even though middle mouse button is the same. Usability / key shortcut reasons.
     const ubyte TOOL_LINE = 4
     const ubyte TOOL_BOX = 5
     const ubyte TOOL_DISC = 6
@@ -102,14 +103,18 @@ drawing {
             return
 
         when active_tool {
-            drawing.TOOL_DRAW -> {
+            drawing.TOOL_DRAW, drawing.TOOL_ERASE -> {
+                ; TODO: allow user to pick a brush size
                 if mouse_button_pressed {
                     ; draw line to new position
                     uword from_x = mouse_prev_x
                     uword from_y = mouse_prev_y
                     mouse_prev_x = cx16.r0
                     mouse_prev_y = cx16.r1
-                    cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
+                    ubyte color = 0     ; erase
+                    if active_tool==TOOL_DRAW
+                        color = color_for_button(buttons)
+                    cx16.GRAPH_set_colors(color, 0, 0)
                     cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
                 } else {
                     ; start new position
@@ -122,7 +127,6 @@ drawing {
             }
             drawing.TOOL_RECT -> { /* todo */ }
             drawing.TOOL_CIRCLE -> { /* todo */ }
-            drawing.TOOL_ERASE -> { /* todo */ }
             drawing.TOOL_LINE -> { /* todo */ }
             drawing.TOOL_BOX -> { /* todo */ }
             drawing.TOOL_DISC -> { /* todo */ }
@@ -348,47 +352,48 @@ commands {
     }
 
     sub save() {
-        ; TODO ask for filename
+        ; TODO Ask for filename. Make sure there's a way to abort saving.
         menu.message("Saving...")
-        if not save_data("@:image.bin", 0, $0000, 320.0*240/256)
-            or not save_data("@:image.pal", 1, $fa00, 2) {
+        bool success = false
+
+        ; This uses the Golden Ram $0400-$07ff as buffer for VRAM.
+        ; Save the image. The 320x240x256C image is exactly 75K data at vram $00000
+        if diskio.f_open_w("@:image.bin") {
+            cx16.vaddr(0,0,0,1)
+            repeat 75 {
+                cx16.r0 = $0400
+                repeat 1024 {
+                    @(cx16.r0) = cx16.VERA_DATA0
+                    cx16.r0++
+                }
+                if not diskio.f_write($0400, 1024)
+                    goto end_save
+            }
+            diskio.f_close_w()
+
+            ; Save the palette. 2 pages at vram $1fa00
+            if diskio.f_open_w("@:image.pal") {
+                cx16.vaddr(1,$fa00,0,1)
+                cx16.r0 = $0400
+                repeat 512 {
+                    @(cx16.r0) = cx16.VERA_DATA0
+                    cx16.r0++
+                }
+                success = diskio.f_write($0400, 512)
+            }
+        }
+
+end_save:
+        if not success {
+            menu.message(diskio.status())
             sys.wait(120)
         }
+        diskio.f_close_w()
         menu.draw()
-
-        sub save_data(str filename, ubyte vbank, uword vaddr, uword numpages) -> bool {
-            bool success = false
-            if diskio.f_open_w(filename) {
-                ; TODO diskio needs to provide some wrapper around MCIOUT
-                diskio.reset_write_channel()
-                cx16.vaddr(vbank,vaddr,1,1)
-                repeat numpages {
-                    uword remaining=256
-                    do {
-                        uword written = cx16.MCIOUT(lsb(remaining), &cx16.VERA_DATA1, true)
-                        if_cs {
-                            ; MCIOUT not supported.... just bail for now
-                            menu.message("Failed: no MCIOUT support")
-                            break
-                        }
-                        if cbm.READST() {
-                            menu.message(diskio.status())
-                            break
-                        }
-                        remaining -= written
-                    } until remaining==0
-                }
-                success = true
-                diskio.f_close_w()
-            } else {
-                menu.message(diskio.status())
-            }
-            return success
-        }
     }
 
     sub load() {
-        ; TODO ask for filename
+        ; TODO Ask for filename. Make sure there's a way to abort loading.
         menu.message("Loading...")
         if not diskio.vload_raw("image.bin", 0, $0000)
             or not diskio.vload_raw("image.pal", 1, $fa00) {
@@ -430,7 +435,7 @@ tools {
             drawing.TOOL_DRAW -> txt.setcc2(5,4,sc:'✓',7)
             drawing.TOOL_RECT -> txt.setcc2(5,6,$69,2)
             drawing.TOOL_CIRCLE -> txt.setcc2(5,8,$69,2)
-            drawing.TOOL_ERASE -> txt.setcc2(5,10,$69,2)
+            drawing.TOOL_ERASE -> txt.setcc2(5,10,sc:'✓',7)
             drawing.TOOL_LINE -> txt.setcc2(21,4,$69,2)
             drawing.TOOL_BOX -> txt.setcc2(21,6,$69,2)
             drawing.TOOL_DISC -> txt.setcc2(21,8,$69,2)
