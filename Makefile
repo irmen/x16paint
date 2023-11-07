@@ -7,4 +7,4 @@ PAINT.PRG: paint.p8
 	mv paint.prg PAINT.PRG
 
 emu: PAINT.PRG
-	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -run -prg $<
+	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -capture -run -prg $<

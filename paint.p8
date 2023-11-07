@@ -1,6 +1,7 @@
 %import syslib
 %import gfx2
 %import textio
+%import diskio
 %import string
 
 main {
@@ -200,6 +201,7 @@ menu {
     }
 
     sub outline(ubyte x, ubyte y, ubyte w, ubyte h, str caption) {
+        cbm.CLRCHN()
         for cx16.r0L in x+1 to x+w-1 {
             txt.setcc2(cx16.r0L, y, sc:'─', 14)
             txt.setcc2(cx16.r0L, y+h, sc:'─', 14)
@@ -220,6 +222,7 @@ menu {
     }
 
     sub message(str text) {
+        cbm.CLRCHN()
         cx16.r0L = string.length(text)
         ubyte xpos = 20 - cx16.r0L/2 -3
         outline(xpos, 8, cx16.r0L+3, 6, "Message")
@@ -309,7 +312,7 @@ menu {
                 cx16.r2 = commands_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(commands_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    void callfar(cx16.getrambank(), commands_handlers[cx16.r0L], 0)       ; indirect JSR
+                    void callfar(cx16.getrambank(), commands_handlers[cx16.r0L], 0)
                     wait_release_mousebuttons()
                     return
                 }
@@ -321,7 +324,7 @@ menu {
                 cx16.r2 = tools_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(tools_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    void callfar(cx16.getrambank(), tools_handlers[cx16.r0L], 0)       ; indirect JSR
+                    void callfar(cx16.getrambank(), tools_handlers[cx16.r0L], 0)
                     wait_release_mousebuttons()
                     return
                 }
@@ -345,15 +348,56 @@ commands {
     }
 
     sub save() {
-        menu.message("SAVE not yet implemented")     ; TODO
-        sys.wait(100)
+        ; TODO ask for filename
+        menu.message("Saving...")
+        if not save_data("@:image.bin", 0, $0000, 320.0*240/256)
+            or not save_data("@:image.pal", 1, $fa00, 2) {
+            sys.wait(120)
+        }
         menu.draw()
+
+        sub save_data(str filename, ubyte vbank, uword vaddr, uword numpages) -> bool {
+            bool success = false
+            if diskio.f_open_w(filename) {
+                ; TODO diskio needs to provide some wrapper around MCIOUT
+                diskio.reset_write_channel()
+                cx16.vaddr(vbank,vaddr,1,1)
+                repeat numpages {
+                    uword remaining=256
+                    do {
+                        uword written = cx16.MCIOUT(lsb(remaining), &cx16.VERA_DATA1, true)
+                        if_cs {
+                            ; MCIOUT not supported.... just bail for now
+                            menu.message("Failed: no MCIOUT support")
+                            break
+                        }
+                        if cbm.READST() {
+                            menu.message(diskio.status())
+                            break
+                        }
+                        remaining -= written
+                    } until remaining==0
+                }
+                success = true
+                diskio.f_close_w()
+            } else {
+                menu.message(diskio.status())
+            }
+            return success
+        }
     }
 
     sub load() {
-        menu.message("LOAD not yet implemented")     ; TODO
-        sys.wait(100)
-        menu.draw()
+        ; TODO ask for filename
+        menu.message("Loading...")
+        if not diskio.vload_raw("image.bin", 0, $0000)
+            or not diskio.vload_raw("image.pal", 1, $fa00) {
+            menu.message(diskio.status())
+            sys.wait(120)
+        } else {
+            tools.draw()
+        }
+        menu.toggle()
     }
 
     sub quit() {
