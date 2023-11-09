@@ -186,11 +186,11 @@ menu {
 
     sub draw_palette() {
         outline(PALETTE_BOX_COL, PALETTE_BOX_ROW, 33, 10, "Palette")
-        txt.plot(PALETTE_BOX_COL+1, PALETTE_BOX_ROW+1)
+        txt.plot(PALETTE_BOX_COL+2, PALETTE_BOX_ROW+1)
         txt.print("Col1:")
-        txt.plot(PALETTE_BOX_COL+12, PALETTE_BOX_ROW+1)
+        txt.plot(PALETTE_BOX_COL+13, PALETTE_BOX_ROW+1)
         txt.print("Col2:")
-        print_selected_colors()
+        draw_selected_colors()
 
         ubyte row
         ubyte col
@@ -225,18 +225,18 @@ menu {
         txt.print(caption)
     }
 
-    sub message(str text) {
+    sub message(str title, str text) {
         cbm.CLRCHN()
         cx16.r0L = string.length(text)
         ubyte xpos = 20 - cx16.r0L/2 -3
-        outline(xpos, 8, cx16.r0L+3, 6, "Message")
+        outline(xpos, 8, cx16.r0L+3, 6, title)
         txt.plot(xpos+2,11)
         txt.color(7)
         txt.print(text)
     }
 
     sub confirm(str text) -> bool {
-        message(text)
+        message("Confirm", text)
         while cbm.GETIN() { }
         repeat {
             when cbm.GETIN() {
@@ -247,24 +247,86 @@ menu {
         }
     }
 
-    sub print_selected_colors() {
-        if drawing.selected_color1==0 {
-            txt.setcc2(PALETTE_BOX_COL+6, PALETTE_BOX_ROW+1, sc:'▒', 255)
-            txt.setcc2(PALETTE_BOX_COL+7, PALETTE_BOX_ROW+1, sc:'▒', 255)
-        } else {
-            txt.setcc2(PALETTE_BOX_COL+6, PALETTE_BOX_ROW+1, 160, drawing.selected_color1)
-            txt.setcc2(PALETTE_BOX_COL+7, PALETTE_BOX_ROW+1, 160, drawing.selected_color1)
+    sub input(ubyte maxlen, str title, str caption) -> str {
+        str filename_buffer = "?" * 80
+        ubyte entered_length = 0
+        ubyte xpos = 20-(maxlen+5)/2
+        cbm.CLRCHN()
+        outline(xpos, 8, maxlen+4, 6, title)
+        txt.plot(xpos+2,10)
+        txt.color(7)
+        txt.print(caption)
+        txt.plot(xpos+2,12)
+        filename_buffer[0] = 0
+        cx16.set_chrin_keyhandler(0, &keystroke_handler)
+        void txt.input_chars(filename_buffer)
+        ; trim right crap and spaces
+        filename_buffer[entered_length]=0
+        while entered_length and filename_buffer[entered_length]!=' '
+            entered_length--
+        while entered_length {
+            if filename_buffer[entered_length]!=' '
+                break
+            filename_buffer[entered_length] = 0
+            entered_length--
         }
-        txt.plot(PALETTE_BOX_COL+8, PALETTE_BOX_ROW+1)
+        return filename_buffer
+
+        sub keystroke_handler() -> ubyte {
+            %asm {{
+                sta  cx16.r0L
+            }}
+            if_cs {
+                ; first entry, decide if we want to override
+                if cx16.r0L==13 {
+                    sys.set_carry()
+                    return 0
+                }
+                if cx16.r0L<32 or (cx16.r0L>=128 and cx16.r0L<160) {
+                    sys.clear_carry()   ; override
+                    return 0
+                }
+                if entered_length<maxlen {
+                    sys.set_carry()     ; regular printable char, don't override
+                    entered_length++
+                }
+                else
+                    sys.clear_carry()
+                return 0
+            } else {
+                ; second entry, handle override
+                if cx16.r0L==20 {
+                    ; DEL/BACKSPACE
+                    if entered_length>0 {
+                        entered_length--
+                        txt.chrout(157)
+                        txt.chrout(' ')
+                        return 157
+                    }
+                }
+                return 0    ; eat all other characters
+            }
+        }
+    }
+
+    sub draw_selected_colors() {
+        if drawing.selected_color1==0 {
+            txt.setcc2(PALETTE_BOX_COL+7, PALETTE_BOX_ROW+1, sc:'▒', 255)
+            txt.setcc2(PALETTE_BOX_COL+8, PALETTE_BOX_ROW+1, sc:'▒', 255)
+        } else {
+            txt.setcc2(PALETTE_BOX_COL+7, PALETTE_BOX_ROW+1, 160, drawing.selected_color1)
+            txt.setcc2(PALETTE_BOX_COL+8, PALETTE_BOX_ROW+1, 160, drawing.selected_color1)
+        }
+        txt.plot(PALETTE_BOX_COL+9, PALETTE_BOX_ROW+1)
         txt.print_ub0(drawing.selected_color1)
         if drawing.selected_color2==0 {
-            txt.setcc2(PALETTE_BOX_COL+17, PALETTE_BOX_ROW+1, sc:'▒', 255)
             txt.setcc2(PALETTE_BOX_COL+18, PALETTE_BOX_ROW+1, sc:'▒', 255)
+            txt.setcc2(PALETTE_BOX_COL+19, PALETTE_BOX_ROW+1, sc:'▒', 255)
         } else {
-            txt.setcc2(PALETTE_BOX_COL+17, PALETTE_BOX_ROW+1, 160, drawing.selected_color2)
             txt.setcc2(PALETTE_BOX_COL+18, PALETTE_BOX_ROW+1, 160, drawing.selected_color2)
+            txt.setcc2(PALETTE_BOX_COL+19, PALETTE_BOX_ROW+1, 160, drawing.selected_color2)
         }
-        txt.plot(PALETTE_BOX_COL+19, PALETTE_BOX_ROW+1)
+        txt.plot(PALETTE_BOX_COL+20, PALETTE_BOX_ROW+1)
         txt.print_ub0(drawing.selected_color2)
     }
 
@@ -298,8 +360,7 @@ menu {
                     sys.wait(60)
                 }
             }
-            print_selected_colors()
-            wait_release_mousebuttons()
+            draw_selected_colors()
             return
         }
 
@@ -345,20 +406,27 @@ commands {
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
             drawing.clear()
-            menu.message("Cleared with Col.2")
+            menu.message("Info", "Cleared with Col.2")
             sys.wait(60)
         }
         menu.draw()
     }
 
     sub save() {
-        ; TODO Ask for filename. Make sure there's a way to abort saving.
-        menu.message("Saving...")
+        uword filename = menu.input(26, "Save", "Enter filename, empty=abort")
+        ubyte filename_len = string.length(filename)
+        if filename==0 or filename_len==0 {
+            menu.draw()
+            return
+        }
+
+        menu.message("Info", "Saving...")
         bool success = false
 
         ; This uses the Golden Ram $0400-$07ff as buffer for VRAM.
         ; Save the image. The 320x240x256C image is exactly 75K data at vram $00000
-        if diskio.f_open_w("@:image.bin") {
+        diskio.delete(filename)
+        if diskio.f_open_w(filename) {
             cx16.vaddr(0,0,0,1)
             repeat 75 {
                 cx16.r0 = $0400
@@ -372,7 +440,18 @@ commands {
             diskio.f_close_w()
 
             ; Save the palette. 2 pages at vram $1fa00
-            if diskio.f_open_w("@:image.pal") {
+            if filename_len>4 {
+                filename[filename_len-3] = 'p'
+                filename[filename_len-2] = 'a'
+                filename[filename_len-1] = 'l'
+            } else {
+                filename[filename_len] = '.'
+                filename[filename_len+1] = 'p'
+                filename[filename_len+2] = 'a'
+                filename[filename_len+3] = 'l'
+            }
+            diskio.delete(filename)
+            if diskio.f_open_w(filename) {
                 cx16.vaddr(1,$fa00,0,1)
                 cx16.r0 = $0400
                 repeat 512 {
@@ -385,7 +464,7 @@ commands {
 
 end_save:
         if not success {
-            menu.message(diskio.status())
+            menu.message("Error", diskio.status())
             sys.wait(120)
         }
         diskio.f_close_w()
@@ -393,16 +472,34 @@ end_save:
     }
 
     sub load() {
-        ; TODO Ask for filename. Make sure there's a way to abort loading.
-        menu.message("Loading...")
-        if not diskio.vload_raw("image.bin", 0, $0000)
-            or not diskio.vload_raw("image.pal", 1, $fa00) {
-            menu.message(diskio.status())
-            sys.wait(120)
-        } else {
-            tools.draw()
+        uword filename = menu.input(26, "Load", "Enter filename, empty=abort")
+        ubyte filename_len = string.length(filename)
+        if filename==0 or filename_len==0 {
+            menu.draw()
+            return
         }
-        menu.toggle()
+
+        menu.message("Info", "Loading...")
+        if diskio.vload_raw(filename, 0, $0000) {
+            if filename_len>4 {
+                filename[filename_len-3] = 'p'
+                filename[filename_len-2] = 'a'
+                filename[filename_len-1] = 'l'
+            } else {
+                filename[filename_len] = '.'
+                filename[filename_len+1] = 'p'
+                filename[filename_len+2] = 'a'
+                filename[filename_len+3] = 'l'
+            }
+            if diskio.vload_raw(filename, 1, $fa00) {
+                menu.toggle()
+                return
+            }
+        }
+
+        menu.message("Error", diskio.status())
+        sys.wait(120)
+        menu.draw()
     }
 
     sub quit() {
