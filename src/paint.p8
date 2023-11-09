@@ -53,8 +53,10 @@ main {
             menu.mouse(cx16.r3L, cx16.r0, cx16.r1)
             return
         }
-        if cx16.r3L
+        if cx16.r3L {
             drawing.mouse(cx16.r3L, cx16.r0, cx16.r1)
+            drawing.mouse_button_pressed = true
+        }
         else
             drawing.mouse_button_pressed = false
     }
@@ -79,7 +81,8 @@ menu {
     ubyte[4] commands_x = [26, 26, 26, 26]
     ubyte[4] commands_y = [4, 6, 8, 10]
 
-    str[9] tools_names = ["Draw", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Magnification"]
+    str[9] tools_names = ["draW", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Magnification"]
+    ubyte[9] tools_hotkeys = ['w', 'r', 'c', 'e', 'l', 'b', 'd', 'f', 'm']
     uword[9] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.magnify]
     ubyte[9] tools_x = [6, 6, 6, 6, 17, 18, 17, 17, 6]
     ubyte[9] tools_y = [4, 6, 8, 10, 4, 6, 8, 10, 14]
@@ -152,7 +155,7 @@ menu {
         txt.setcc2(x+w, y, sc:'┐', 14)
         txt.setcc2(x, y+h, sc:'└', 14)
         txt.setcc2(x+w, y+h, sc:'┘', 14)
-        txt.plot(x+3, y)
+        txt.plot(x+2, y)
         txt.color(15)
         txt.print(caption)
     }
@@ -462,11 +465,11 @@ tools {
         clear_checkmarks()
         when drawing.active_tool {
             drawing.TOOL_DRAW -> txt.setcc2(5,4,sc:'✓',7)
-            drawing.TOOL_RECT -> txt.setcc2(5,6,$69,2)
+            drawing.TOOL_RECT -> txt.setcc2(5,6,sc:'✓',7)
             drawing.TOOL_CIRCLE -> txt.setcc2(5,8,$69,2)
             drawing.TOOL_ERASE -> txt.setcc2(5,10,sc:'✓',7)
-            drawing.TOOL_LINE -> txt.setcc2(21,4,$69,2)
-            drawing.TOOL_BOX -> txt.setcc2(21,6,$69,2)
+            drawing.TOOL_LINE -> txt.setcc2(21,4,sc:'✓',7)
+            drawing.TOOL_BOX -> txt.setcc2(21,6,sc:'✓',7)
             drawing.TOOL_DISC -> txt.setcc2(21,8,$69,2)
             drawing.TOOL_FILL -> txt.setcc2(21,10,sc:'✓',7)
         }
