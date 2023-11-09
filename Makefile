@@ -1,10 +1,13 @@
+.PHONY:  all clean zip run
 
 all: PAINT.PRG
 
+run: all
+	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -capture -run -prg PAINT.PRG
 
-PAINT.PRG: paint.p8
-	p8compile -target cx16 -sourcelines paint.p8
+clean:
+	rm -f *.prg *.PRG *.asm *.vice-* *.zip *.7z
+
+PAINT.PRG: src/paint.p8 src/drawing.p8
+	p8compile -target cx16 -sourcelines src/paint.p8
 	mv paint.prg PAINT.PRG
-
-emu: PAINT.PRG
-	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -capture -run -prg $<
