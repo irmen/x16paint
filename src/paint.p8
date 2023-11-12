@@ -1,11 +1,15 @@
 ; Paint program for the Commander X16.
 ; This is the main program and menu logic.
 
-; TODO: undo  (copy to hiram?)
+; TODO: undo+redo
 ; TODO: fix certain drawing tools
-; TODO: file picker
-; TODO: implement zoom
-; TODO: palette editing?
+; TODO: 1-8 and shifted = color picker 0-15 ? but what about all the other colors
+; TODO: file picker for load
+; TODO: crosshair mouse cursor instead of pointer
+; TODO: increase/decrease brush size for erasing and drawing
+; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
+; TODO: palette editing
+; TODO: text tool?
 
 
 %import syslib
@@ -21,11 +25,12 @@ main {
         cx16.GRAPH_set_colors(1,2,0)
         cx16.GRAPH_clear()
         drawing.init()
+        drawing.reset_undo()
 
         ; mouse
         cx16.mouse_config2(1)
         ; select a different palette offset for the mouse pointer to make it visible on black:
-        cx16.vpoke_mask(1, $fc00+7, %11110000, %1011)         ; TODO better mouse pointer?
+        cx16.vpoke_mask(1, $fc00+7, %11110000, %1011)
 
         ; instructions
         txt.lowercase()
@@ -36,11 +41,12 @@ main {
         txt.print("    DesertFish ▒ Prog8")
         txt.color(14)
         txt.print("\n\n\n\n    Instructions:\n\n\n")
-        txt.print("    - Use the mouse to paint stuff.\n")
-        txt.print("      Left/right button = color 1/2.\n")
-        txt.print("      Middle button = erase.\n\n")
-        txt.print("    - Only 320*240 with 256 colors.\n\n")
-        txt.print("    - TAB toggles the menus on/off.\n\n\n\n")
+        txt.print("   - Use the mouse to paint stuff.\n")
+        txt.print("     Left/right button = color 1/2.\n")
+        txt.print("     Middle button = erase.\n\n")
+        txt.print("   - Only 320*240 with 256 colors.\n\n")
+        txt.print("   - Tools have hotkeys (capitalized).\n\n")
+        txt.print("   - TAB toggles the menus on/off.\n\n\n\n")
         txt.print("    Click any mouse button to start.")
         while not cx16.mouse_pos() { }
         while cx16.mouse_pos() { }
@@ -63,8 +69,9 @@ main {
             drawing.mouse(cx16.r3L, cx16.r0, cx16.r1)
             drawing.mouse_button_pressed = true
         }
-        else
+        else {
             drawing.mouse_button_pressed = false
+        }
     }
 
     sub handle_keypress() {
@@ -107,10 +114,12 @@ main {
                 tools.fill()
             }
             'u' -> {
-                notification.show("Undo (TODO)")
+                notification.show("Undo is T.B.D.")     ; TODO
+                ; drawing.undo()
             }
             'y' -> {
-                notification.show("Redo (TODO)")
+                notification.show("Redo is T.B.D.")     ; TODO
+                ; drawing.redo()
             }
             'z' -> {
                 notification.show("Zoom (TODO)")
@@ -402,6 +411,7 @@ commands {
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
             drawing.clear()
+            drawing.reset_undo()
             menu.message("Info", "Cleared with Col.2")
             sys.wait(60)
         }
@@ -421,8 +431,15 @@ commands {
 
         ; This uses the Golden Ram $0400-$07ff as buffer for VRAM.
         ; Save the image. The 320x240x256C image is exactly 75K data at vram $00000
-        diskio.delete(filename)
         if diskio.f_open_w(filename) {
+            cx16.r0 = diskio.status()
+            if cx16.r0[0]!='0' {
+                menu.message("Error", cx16.r0)
+                sys.wait(120)
+                success = true    ; don't repeat error message
+                goto end_save
+            }
+
             cx16.vaddr(0,0,0,1)
             repeat 75 {
                 cx16.r0 = $0400
@@ -436,17 +453,7 @@ commands {
             diskio.f_close_w()
 
             ; Save the palette. 2 pages at vram $1fa00
-            if filename_len>4 and filename[filename_len-4]=='.' {
-                filename[filename_len-3] = 'p'
-                filename[filename_len-2] = 'a'
-                filename[filename_len-1] = 'l'
-            } else {
-                filename[filename_len] = '.'
-                filename[filename_len+1] = 'p'
-                filename[filename_len+2] = 'a'
-                filename[filename_len+3] = 'l'
-                filename[filename_len+4] = 0
-            }
+            make_palette_filename(filename, filename_len)
             diskio.delete(filename)
             if diskio.f_open_w(filename) {
                 cx16.vaddr(1,$fa00,0,1)
@@ -478,25 +485,37 @@ end_save:
 
         menu.message("Info", "Loading...")
         if diskio.vload_raw(filename, 0, $0000) {
-            if filename_len>4 {
-                filename[filename_len-3] = 'p'
-                filename[filename_len-2] = 'a'
-                filename[filename_len-1] = 'l'
-            } else {
-                filename[filename_len] = '.'
-                filename[filename_len+1] = 'p'
-                filename[filename_len+2] = 'a'
-                filename[filename_len+3] = 'l'
-            }
+            make_palette_filename(filename, filename_len)
             if diskio.vload_raw(filename, 1, $fa00) {
+                drawing.reset_undo()
                 menu.toggle()
                 return
+            }  else {
+                  menu.message("Error", "palette file not found")
+                  sys.wait(100)
             }
+        } else {
+            menu.message("Error", "image file not found")
+            sys.wait(100)
         }
 
         menu.message("Error", diskio.status())
         sys.wait(120)
         menu.draw()
+    }
+
+    sub make_palette_filename(str filename, ubyte length) {
+        if length>4 and filename[length-4]=='.' {
+            filename[length-3] = 'p'
+            filename[length-2] = 'a'
+            filename[length-1] = 'l'
+        } else {
+            filename[length] = '.'
+            filename[length+1] = 'p'
+            filename[length+2] = 'a'
+            filename[length+3] = 'l'
+            filename[length+4] = 0
+        }
     }
 
     sub quit() {

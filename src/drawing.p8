@@ -19,9 +19,13 @@ drawing {
     uword mouse_prev_x
     uword mouse_prev_y
     bool mouse_button_pressed
+    ubyte undo_buffers_amount
+    ubyte next_undo_buffer = 0
+    ubyte stored_undo_buffers = 0
 
     sub init() {
         gfx2.init_mode(1)
+        undo_buffers_amount = (cx16.numbanks()-1)/10 as ubyte       ; each undo buffer requires 10 banks
     }
 
     sub clear() {
@@ -142,5 +146,67 @@ drawing {
         x1 -= x2
         y1 -= y2
         return sqrt(x1*x1 + y1*y1)
+    }
+
+    sub remember_screen() {
+        if undo_buffers_amount==0 or stored_undo_buffers==undo_buffers_amount
+            return
+
+        ; TODO cycle multiple buffers
+        ; for now, we use just 1 buffer.
+        ubyte prev_rambank = cx16.getrambank()
+        cx16.FB_cursor_position(0, 0)
+        ubyte bank
+        for bank in 1 to 10 {
+            ; copy 10 banks worth of pixels (10 times 24 rows)
+            cx16.rambank(bank)
+            cx16.FB_get_pixels($a000, 320*24)       ; TODO check that it doesn't overflow
+        }
+        cx16.rambank(prev_rambank)
+
+        next_undo_buffer = 1
+        stored_undo_buffers = 1
+    }
+
+    sub reset_undo() {
+        if undo_buffers_amount==0
+            return
+        next_undo_buffer = 0
+        stored_undo_buffers = 0
+        remember_screen()
+    }
+
+    sub undo() {
+        if undo_buffers_amount==0 or next_undo_buffer==0
+            notification.show("Undo not available")
+        else {
+            notification.show("Undo")
+            next_undo_buffer--
+            restore_buffer(next_undo_buffer)
+            ; TODO cycle multiple buffers
+        }
+    }
+
+    sub redo() {
+        if undo_buffers_amount==0 or next_undo_buffer==stored_undo_buffers
+            notification.show("Redo not available")
+        else {
+            notification.show("Redo")
+            restore_buffer(next_undo_buffer)
+            next_undo_buffer++
+            ; TODO cycle multiple buffers
+        }
+    }
+
+    sub restore_buffer(ubyte buffer) {
+        ubyte prev_rambank = cx16.getrambank()
+        cx16.FB_cursor_position(0, 0)
+        ubyte bank
+        for bank in 1 to 10 {
+            ; copy 10 banks worth of pixels (10 times 24 rows)
+            cx16.rambank(bank)
+            cx16.FB_set_pixels($a000, 320*24)       ; TODO this overflows the screen at the end!?
+        }
+        cx16.rambank(prev_rambank)
     }
 }
