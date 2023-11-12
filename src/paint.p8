@@ -1,6 +1,13 @@
 ; Paint program for the Commander X16.
 ; This is the main program and menu logic.
 
+; TODO: undo  (copy to hiram?)
+; TODO: fix certain drawing tools
+; TODO: file picker
+; TODO: implement zoom
+; TODO: palette editing?
+
+
 %import syslib
 %import textio
 %import diskio
@@ -11,7 +18,6 @@ main {
     sub start() {
         ; screen mode
         void cx16.screen_mode(128, false)
-        cx16.VERA_L1_CONFIG |= %00001000     ; enable T256C mode for the text layer
         cx16.GRAPH_set_colors(1,2,0)
         cx16.GRAPH_clear()
         drawing.init()
@@ -63,9 +69,52 @@ main {
 
     sub handle_keypress() {
         when cbm.GETIN() {
+            0 -> return
             9 -> {
                 ; TAB = show/hide menus overlay
                 menu.toggle()
+            }
+            'w' -> {
+                notification.show("Draw")
+                tools.draw()
+            }
+            'l' -> {
+                notification.show("Line")
+                tools.line()
+            }
+            'r' -> {
+                notification.show("Rectangle")
+                tools.rect()
+            }
+            'b' -> {
+                notification.show("Box")
+                tools.box()
+            }
+            'c' -> {
+                notification.show("Circle")
+                tools.circle()
+            }
+            'd' -> {
+                notification.show("Disc")
+                tools.disc()
+            }
+            'e' -> {
+                notification.show("Erase")
+                tools.erase()
+            }
+            'f' -> {
+                notification.show("Fill")
+                tools.fill()
+            }
+            'u' -> {
+                notification.show("Undo (TODO)")
+            }
+            'y' -> {
+                notification.show("Redo (TODO)")
+            }
+            'z' -> {
+                notification.show("Zoom (TODO)")
+                tools.zoom()
             }
         }
     }
@@ -76,16 +125,15 @@ menu {
     const ubyte PALETTE_BOX_ROW = 17
     const ubyte PALETTE_BOX_COL = 3
 
-    str[4] commands_names = ["Clear", "Save", "Load", "Quit"]
-    uword[4] commands_handlers = [&commands.clear, &commands.save, &commands.load, &commands.quit]
-    ubyte[4] commands_x = [26, 26, 26, 26]
-    ubyte[4] commands_y = [4, 6, 8, 10]
+    str[5] commands_names = ["Undo/redo", "Clear", "Save", "Load", "Quit"]
+    uword[5] commands_handlers = [&commands.undo, &commands.clear, &commands.save, &commands.load, &commands.quit]
+    ubyte[5] commands_x = [26, 26, 26, 26, 26]
+    ubyte[5] commands_y = [4, 6, 8, 10, 12]
 
-    str[9] tools_names = ["draW", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Magnification"]
-    ubyte[9] tools_hotkeys = ['w', 'r', 'c', 'e', 'l', 'b', 'd', 'f', 'm']
-    uword[9] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.magnify]
+    str[9] tools_names = ["draW", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Zoom"]
+    uword[9] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.zoom]
     ubyte[9] tools_x = [6, 6, 6, 6, 17, 18, 17, 17, 6]
-    ubyte[9] tools_y = [4, 6, 8, 10, 4, 6, 8, 10, 14]
+    ubyte[9] tools_y = [4, 6, 8, 10, 4, 6, 8, 10, 13]
 
     sub draw() {
         txt.color(14)
@@ -103,6 +151,9 @@ menu {
             txt.print(tools_names[cx16.r0L])
         }
         tools.draw_active_checkmark()
+        txt.color(6)
+        txt.plot(6,15)
+        txt.print("hotKeys active")
     }
 
     sub draw_commands() {
@@ -163,7 +214,7 @@ menu {
     sub message(str title, str text) {
         cbm.CLRCHN()
         cx16.r0L = string.length(text)
-        ubyte xpos = 20 - cx16.r0L/2 -3
+        ubyte xpos = 20 - cx16.r0L/2 -2
         outline(xpos, 8, cx16.r0L+3, 6, title)
         txt.plot(xpos+2,11)
         txt.color(7)
@@ -270,11 +321,14 @@ menu {
             active = false
             cx16.VERA_CTRL = 0
             cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11001111) | %00010000
+            cx16.VERA_L1_CONFIG &= %11110111     ; disable T256C mode for the text layer
         } else {
             active = true
+            txt.color2(1,0)
             draw()
             cx16.VERA_CTRL = 0
             cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11001111) | %00100000
+            cx16.VERA_L1_CONFIG |= %00001000     ; enable T256C mode for the text layer
         }
     }
 
@@ -338,6 +392,13 @@ menu {
 }
 
 commands {
+    sub undo() {
+        menu.message("Info", "just press U = Undo, Y = Redo")
+        sys.wait(100)
+        menu.draw()
+    }
+
+
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
             drawing.clear()
@@ -375,7 +436,7 @@ commands {
             diskio.f_close_w()
 
             ; Save the palette. 2 pages at vram $1fa00
-            if filename_len>4 {
+            if filename_len>4 and filename[filename_len-4]=='.' {
                 filename[filename_len-3] = 'p'
                 filename[filename_len-2] = 'a'
                 filename[filename_len-1] = 'l'
@@ -384,6 +445,7 @@ commands {
                 filename[filename_len+1] = 'p'
                 filename[filename_len+2] = 'a'
                 filename[filename_len+3] = 'l'
+                filename[filename_len+4] = 0
             }
             diskio.delete(filename)
             if diskio.f_open_w(filename) {
@@ -462,22 +524,24 @@ tools {
     }
 
     sub draw_active_checkmark() {
+        if not menu.active
+            return
         clear_checkmarks()
         when drawing.active_tool {
             drawing.TOOL_DRAW -> txt.setcc2(5,4,sc:'✓',7)
             drawing.TOOL_RECT -> txt.setcc2(5,6,sc:'✓',7)
-            drawing.TOOL_CIRCLE -> txt.setcc2(5,8,$69,2)
+            drawing.TOOL_CIRCLE -> txt.setcc2(5,8,sc:'✓',7)
             drawing.TOOL_ERASE -> txt.setcc2(5,10,sc:'✓',7)
             drawing.TOOL_LINE -> txt.setcc2(21,4,sc:'✓',7)
             drawing.TOOL_BOX -> txt.setcc2(21,6,sc:'✓',7)
-            drawing.TOOL_DISC -> txt.setcc2(21,8,$69,2)
+            drawing.TOOL_DISC -> txt.setcc2(21,8,sc:'✓',7)
             drawing.TOOL_FILL -> txt.setcc2(21,10,sc:'✓',7)
         }
 
-        if drawing.magnification
-            txt.setcc2(5,14,$69,2)
+        if drawing.zooming
+            txt.setcc2(5,13,$69,2)
         else
-            txt.setcc2(5,14,sc:' ',7)
+            txt.setcc2(5,13,sc:' ',7)
     }
 
     sub draw() {
@@ -520,8 +584,26 @@ tools {
         draw_active_checkmark()
     }
 
-    sub magnify() {
-        drawing.magnification = not drawing.magnification
+    sub zoom() {
+        drawing.zooming = not drawing.zooming
         draw_active_checkmark()
+    }
+}
+
+notification {
+    sub show(str text) {
+        if menu.active
+            return
+        txt.color2(1,0)
+        txt.clear_screen()
+        txt.color2(1,2)
+        txt.plot(14,2)
+        txt.spc()
+        txt.print(text)
+        txt.spc()
+        cx16.VERA_CTRL = 0
+        cx16.VERA_DC_VIDEO |= %00100000     ; enable text layer
+        sys.wait(30)
+        cx16.VERA_DC_VIDEO &= %11011111     ; disable text layer
     }
 }

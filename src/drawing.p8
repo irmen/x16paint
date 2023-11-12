@@ -15,7 +15,7 @@ drawing {
     ubyte active_tool = TOOL_DRAW
     ubyte selected_color1 = 1
     ubyte selected_color2 = 6
-    bool magnification = false
+    bool zooming = false
     uword mouse_prev_x
     uword mouse_prev_y
     bool mouse_button_pressed
@@ -109,14 +109,38 @@ drawing {
                 }
             }
             TOOL_CIRCLE -> {
-                ; TODO circle
+                ; TODO: this is not how circles are supposed to work, but just a first example implementation
+                if mouse_button_pressed {
+                    ; draw disc to current position
+                    color = color_for_button(buttons)
+                    gfx2.safe_circle(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
+                } else {
+                    ; start new position
+                    mouse_prev_x = mx
+                    mouse_prev_y = my
+                }
             }
             TOOL_DISC -> {
-                ; TODO filled circle
+                ; TODO: is this how filled circles are supposed to work?
+                if mouse_button_pressed {
+                    ; draw disc to current position
+                    color = color_for_button(buttons)
+                    gfx2.safe_disc(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
+                } else {
+                    ; start new position
+                    mouse_prev_x = mx
+                    mouse_prev_y = my
+                }
             }
             TOOL_FILL -> {
                 gfx2.fill(cx16.r0, cx16.r1, color_for_button(buttons))
             }
         }
+    }
+
+    sub radius(uword x1, uword y1, uword x2, uword y2) -> ubyte {
+        x1 -= x2
+        y1 -= y2
+        return sqrt(x1*x1 + y1*y1)
     }
 }
