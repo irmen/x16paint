@@ -1,6 +1,6 @@
 ; These are the actual drawing routines.
 
-%import gfx2
+%import gfxroutines
 
 drawing {
     const ubyte TOOL_DRAW = 1
@@ -24,13 +24,7 @@ drawing {
     ubyte stored_undo_buffers = 0
 
     sub init() {
-        gfx2.init_mode(1)
         undo_buffers_amount = (cx16.numbanks()-1)/10 as ubyte       ; each undo buffer requires 10 banks
-    }
-
-    sub clear() {
-        cx16.GRAPH_set_colors(selected_color1,0,selected_color2)
-        cx16.GRAPH_clear()
     }
 
     sub color_for_button(ubyte buttons) -> ubyte {
@@ -61,22 +55,24 @@ drawing {
                     color = 0     ; erase
                     if active_tool==TOOL_DRAW
                         color = color_for_button(buttons)
-                    cx16.GRAPH_set_colors(color, 0, 0)
-                    cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
+                    gfx.line(from_x, from_y, mouse_prev_x, mouse_prev_y, color)
+                    ;cx16.GRAPH_set_colors(color, 0, 0)
+                    ;cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
                 } else {
                     ; start new position
                     mouse_prev_x = mx
                     mouse_prev_y = my
-                    cx16.FB_cursor_position(mx, my)
-                    cx16.FB_set_pixel(color_for_button(buttons))
+                    ;cx16.FB_cursor_position(mx, my)
+                    ;cx16.FB_set_pixel(color_for_button(buttons))
                 }
             }
             TOOL_LINE -> {
                 ; TODO: this is not how lines are supposed to work, but just a first example implementation
                 if mouse_button_pressed {
                     ; draw line to current position
-                    cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
-                    cx16.GRAPH_draw_line(mouse_prev_x, mouse_prev_y, mx, my)
+                    gfx.line(mouse_prev_x, mouse_prev_y, mx, my, color_for_button(buttons))
+                    ; cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
+                    ; cx16.GRAPH_draw_line(mouse_prev_x, mouse_prev_y, mx, my)
                 } else {
                     ; start new position
                     mouse_prev_x = mx
@@ -87,10 +83,13 @@ drawing {
                 ; TODO: this is not how rectangles are supposed to work, but just a first example implementation
                 if mouse_button_pressed {
                     ; draw rectangle to current position
-                    cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
-                    cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                                         1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                                         0, false)
+                    gfx.rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
+                             1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
+                             color_for_button(buttons))
+                    ;cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
+                    ;cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
+                    ;                     1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
+                    ;                     0, false)
                 } else {
                     ; start new position
                     mouse_prev_x = mx
@@ -101,11 +100,14 @@ drawing {
                 ; TODO: is this how filled rectangles are supposed to work?
                 if mouse_button_pressed {
                     ; draw box to current position
-                    color = color_for_button(buttons)
-                    cx16.GRAPH_set_colors(color, color, 0)
-                    cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                                         1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                                         0, true)
+                    gfx.fillrect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
+                                 1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
+                                 color_for_button(buttons))
+                    ; color = color_for_button(buttons)
+                    ; cx16.GRAPH_set_colors(color, color, 0)
+                    ; cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
+                    ;                      1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
+                    ;                      0, true)
                 } else {
                     ; start new position
                     mouse_prev_x = mx
@@ -117,7 +119,7 @@ drawing {
                 if mouse_button_pressed {
                     ; draw disc to current position
                     color = color_for_button(buttons)
-                    gfx2.safe_circle(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
+                    gfx.safe_circle(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
                 } else {
                     ; start new position
                     mouse_prev_x = mx
@@ -129,7 +131,7 @@ drawing {
                 if mouse_button_pressed {
                     ; draw disc to current position
                     color = color_for_button(buttons)
-                    gfx2.safe_disc(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
+                    gfx.safe_disc(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
                 } else {
                     ; start new position
                     mouse_prev_x = mx
@@ -137,7 +139,7 @@ drawing {
                 }
             }
             TOOL_FILL -> {
-                gfx2.fill(cx16.r0, cx16.r1, color_for_button(buttons))
+                gfx.fill(cx16.r0, cx16.r1, color_for_button(buttons))
             }
         }
     }

@@ -8,6 +8,6 @@ run: all
 clean:
 	rm -f *.prg *.PRG *.asm *.vice-* *.zip *.7z
 
-PAINT.PRG: src/paint.p8 src/drawing.p8
+PAINT.PRG: src/paint.p8 src/drawing.p8 src/gfxroutines.p8
 	p8compile -target cx16 -sourcelines src/paint.p8
 	mv paint.prg PAINT.PRG

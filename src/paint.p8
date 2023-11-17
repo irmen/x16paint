@@ -10,6 +10,7 @@
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
 ; TODO: palette editing
 ; TODO: text tool?
+; TODO: read/write the new BMX file format
 
 
 %import syslib
@@ -20,10 +21,7 @@
 
 main {
     sub start() {
-        ; screen mode
-        void cx16.screen_mode(128, false)
-        cx16.GRAPH_set_colors(1,2,0)
-        cx16.GRAPH_clear()
+        gfx.init()
         drawing.init()
         drawing.reset_undo()
 
@@ -410,7 +408,7 @@ commands {
 
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
-            drawing.clear()
+            gfx.clear_screen(drawing.selected_color1, drawing.selected_color2)
             drawing.reset_undo()
             menu.message("Info", "Cleared with Col.2")
             sys.wait(60)
