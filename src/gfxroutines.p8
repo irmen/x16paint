@@ -3,8 +3,8 @@
 ; NOTE: can't really use the kernal graphics routines because we need to be able
 ;       to draw non-destructively by EORing the color.
 
+; TODO all Y coordinates could be in 1 byte because max is 240
 
-; TODO all optimized horiz and vert lines should take eor_mode into account too
 
 gfx {
     ; read-only control variables:
@@ -54,23 +54,47 @@ gfx {
         if length==0
             return
         position(xx, yy)
-        %asm {{
-            lda  p8_color
-            ldx  p8_length+1
-            beq  +
-            ldy  #0
--           sta  cx16.VERA_DATA0
-            iny
-            bne  -
-            dex
-            bne  -
-+           ldy  p8_length     ; remaining
-            beq  +
--           sta  cx16.VERA_DATA0
-            dey
-            bne  -
+        if eor_mode {
+            cx16.vaddr_clone(0)      ; also setup port 1, for reading
+            %asm {{
+                ldx  p8_length+1
+                beq  +
+                ldy  #0
+-               lda  p8_color
+                eor  cx16.VERA_DATA1
+                sta  cx16.VERA_DATA0
+                iny
+                bne  -
+                dex
+                bne  -
++               ldy  p8_length     ; remaining
+                beq  +
+-               lda  p8_color
+                eor  cx16.VERA_DATA1
+                sta  cx16.VERA_DATA0
+                dey
+                bne  -
 +
-        }}
+            }}
+        } else {
+            %asm {{
+                lda  p8_color
+                ldx  p8_length+1
+                beq  +
+                ldy  #0
+-               sta  cx16.VERA_DATA0
+                iny
+                bne  -
+                dex
+                bne  -
++               ldy  p8_length     ; remaining
+                beq  +
+-               sta  cx16.VERA_DATA0
+                dey
+                bne  -
++
+            }}
+        }
     }
 
     sub safe_horizontal_line(uword xx, uword yy, uword length, ubyte color) {
@@ -95,15 +119,29 @@ gfx {
         ; set vera auto-increment to 320 pixel increment (=next line)
         position(xx,yy)
         cx16.VERA_ADDR_H = cx16.VERA_ADDR_H & %00000111 | (14<<4)
-        %asm {{
-            ldy  p8_lheight
-            beq  +
-            lda  p8_color
--           sta  cx16.VERA_DATA0
-            dey
-            bne  -
+        if eor_mode {
+            cx16.vaddr_clone(0)      ; also setup port 1, for reading
+            %asm {{
+                ldy  p8_lheight
+                beq  +
+-               lda  p8_color
+                eor  cx16.VERA_DATA1
+                sta  cx16.VERA_DATA0
+                dey
+                bne  -
 +
-        }}
+            }}
+        } else {
+            %asm {{
+                ldy  p8_lheight
+                beq  +
+                lda  p8_color
+-               sta  cx16.VERA_DATA0
+                dey
+                bne  -
++
+            }}
+        }
     }
 
     sub line(uword @zp x1, uword @zp y1, uword @zp x2, uword @zp y2, ubyte color) {

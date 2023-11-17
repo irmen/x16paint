@@ -61,6 +61,7 @@ drawing {
                         gfx.eor_mode = true
                         gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         sys.waitvsync()
+                        sys.waitvsync()
                         gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         gfx.eor_mode = false
                     }
@@ -68,12 +69,14 @@ drawing {
                         gfx.eor_mode = true
                         drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         sys.waitvsync()
+                        sys.waitvsync()
                         drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         gfx.eor_mode = false
                     }
                     TOOL_BOX -> {
                         gfx.eor_mode = true
                         drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        sys.waitvsync()
                         sys.waitvsync()
                         drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         gfx.eor_mode = false
@@ -92,13 +95,13 @@ drawing {
                         circle_radius = radius(mouse_drag_start_x, mouse_drag_start_y, mx, my)
                         gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
                         sys.waitvsync()
+                        sys.waitvsync()
                         gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
                         gfx.eor_mode = false
                     }
                     TOOL_FILL -> {
                         ; no action on drag! Fill starts when button released.
                     }
-                    ; TODO the other tools
                 }
             } else {
                 ; no buttons pressed anymore - end the dragging

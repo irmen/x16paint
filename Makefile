@@ -3,7 +3,7 @@
 all: PAINT.PRG
 
 run: all
-	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -capture -run -prg PAINT.PRG
+	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -run -prg PAINT.PRG
 
 clean:
 	rm -f *.prg *.PRG *.asm *.vice-* *.zip *.7z
