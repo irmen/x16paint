@@ -1,8 +1,10 @@
-; 320*240 256C bitmap graphics routines, based on gf2 library module.
+; 320*240 256C bitmap graphics routines, based on gfx2 library module.
 
 ; NOTE: can't really use the kernal graphics routines because we need to be able
-;       to draw non-destructively by EORing the color
+;       to draw non-destructively by EORing the color.
 
+
+; TODO all optimized horiz and vert lines should take eor_mode into account too
 
 gfx {
     ; read-only control variables:
@@ -11,7 +13,10 @@ gfx {
     const uword height = 240
     const ubyte bpp = 8
 
+    bool eor_mode
+
     sub init() {
+        eor_mode = false
         void cx16.screen_mode(128, false)
         clear_screen(1, 0)
     }
@@ -275,8 +280,15 @@ gfx {
             sta  cx16.VERA_ADDR_M
             lda  cx16.r0
             sta  cx16.VERA_ADDR_L
+            lda  p8_eor_mode
+            bne  +
             lda  p8_color
             sta  cx16.VERA_DATA0
+            rts
++           lda  p8_color
+            eor  cx16.VERA_DATA0
+            sta  cx16.VERA_DATA0
+            rts
         }}
     }
 

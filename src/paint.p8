@@ -2,7 +2,6 @@
 ; This is the main program and menu logic.
 
 ; TODO: undo+redo
-; TODO: fix certain drawing tools
 ; TODO: 1-8 and shifted = color picker 0-15 ? but what about all the other colors
 ; TODO: file picker for load
 ; TODO: crosshair mouse cursor instead of pointer
@@ -59,17 +58,11 @@ main {
     sub handle_mouse() {
         cx16.r3L = cx16.mouse_pos()
         if menu.active {
-            drawing.mouse_button_pressed = false
+            drawing.stop()
             menu.mouse(cx16.r3L, cx16.r0, cx16.r1)
             return
         }
-        if cx16.r3L {
-            drawing.mouse(cx16.r3L, cx16.r0, cx16.r1)
-            drawing.mouse_button_pressed = true
-        }
-        else {
-            drawing.mouse_button_pressed = false
-        }
+        drawing.mouse(cx16.r3L, cx16.r0, cx16.r1)
     }
 
     sub handle_keypress() {

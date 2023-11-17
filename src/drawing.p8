@@ -16,15 +16,20 @@ drawing {
     ubyte selected_color1 = 1
     ubyte selected_color2 = 6
     bool zooming = false
-    uword mouse_prev_x
-    uword mouse_prev_y
-    bool mouse_button_pressed
+    uword mouse_drag_start_x
+    uword mouse_drag_start_y
     ubyte undo_buffers_amount
     ubyte next_undo_buffer = 0
     ubyte stored_undo_buffers = 0
+    ubyte dragging_with_button = 0
+    ubyte eor_color
 
     sub init() {
         undo_buffers_amount = (cx16.numbanks()-1)/10 as ubyte       ; each undo buffer requires 10 banks
+    }
+
+    sub stop() {
+        dragging_with_button = 0
     }
 
     sub color_for_button(ubyte buttons) -> ubyte {
@@ -36,112 +41,111 @@ drawing {
     }
 
     sub mouse(ubyte buttons, uword mx, uword my) {
-        if buttons==0
-            return
+        gfx.eor_mode = false
+        ubyte circle_radius
 
-        ubyte color
-        uword from_x
-        uword from_y
-
-        when active_tool {
-            TOOL_DRAW, TOOL_ERASE -> {
-                ; TODO: allow user to pick a brush size
-                if mouse_button_pressed {
-                    ; draw to new position
-                    from_x = mouse_prev_x
-                    from_y = mouse_prev_y
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                    color = 0     ; erase
-                    if active_tool==TOOL_DRAW
-                        color = color_for_button(buttons)
-                    gfx.line(from_x, from_y, mouse_prev_x, mouse_prev_y, color)
-                    ;cx16.GRAPH_set_colors(color, 0, 0)
-                    ;cx16.GRAPH_draw_line(from_x, from_y, mouse_prev_x, mouse_prev_y)
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                    ;cx16.FB_cursor_position(mx, my)
-                    ;cx16.FB_set_pixel(color_for_button(buttons))
+        if dragging_with_button {
+            eor_color += 17
+            if buttons {
+                ; user is dragging the mouse with button(s) pressed
+                ; this usually means whatever is drawn is still temporary
+                when active_tool {
+                    TOOL_DRAW, TOOL_ERASE -> {
+                        ; immediately draw the line while dragging
+                        ; TODO: allow user to pick a brush size
+                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, color_for_button(buttons))
+                        mouse_drag_start_x=mx
+                        mouse_drag_start_y=my
+                    }
+                    TOOL_LINE -> {
+                        gfx.eor_mode = true
+                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        sys.waitvsync()
+                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        gfx.eor_mode = false
+                    }
+                    TOOL_RECT -> {
+                        gfx.eor_mode = true
+                        drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        sys.waitvsync()
+                        drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        gfx.eor_mode = false
+                    }
+                    TOOL_BOX -> {
+                        gfx.eor_mode = true
+                        drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        sys.waitvsync()
+                        drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        gfx.eor_mode = false
+                    }
+                    TOOL_CIRCLE -> {
+                        gfx.eor_mode = true
+                        circle_radius = radius(mouse_drag_start_x, mouse_drag_start_y, mx, my)
+                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        sys.waitvsync()
+                        sys.waitvsync()
+                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        gfx.eor_mode = false
+                    }
+                    TOOL_DISC -> {
+                        gfx.eor_mode = true
+                        circle_radius = radius(mouse_drag_start_x, mouse_drag_start_y, mx, my)
+                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        sys.waitvsync()
+                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        gfx.eor_mode = false
+                    }
+                    TOOL_FILL -> {
+                        ; no action on drag! Fill starts when button released.
+                    }
+                    ; TODO the other tools
                 }
-            }
-            TOOL_LINE -> {
-                ; TODO: this is not how lines are supposed to work, but just a first example implementation
-                if mouse_button_pressed {
-                    ; draw line to current position
-                    gfx.line(mouse_prev_x, mouse_prev_y, mx, my, color_for_button(buttons))
-                    ; cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
-                    ; cx16.GRAPH_draw_line(mouse_prev_x, mouse_prev_y, mx, my)
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
+            } else {
+                ; no buttons pressed anymore - end the dragging
+                ; this usually means we actually draw the final shape now
+                ubyte color = color_for_button(dragging_with_button)
+                when active_tool {
+                    TOOL_LINE -> {
+                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
+                    }
+                    TOOL_RECT -> {
+                        drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
+                    }
+                    TOOL_BOX -> {
+                        drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
+                    }
+                    TOOL_CIRCLE -> {
+                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
+                    }
+                    TOOL_DISC -> {
+                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
+                    }
+                    TOOL_FILL -> {
+                        gfx.fill(cx16.r0, cx16.r1, color)
+                    }
                 }
+                dragging_with_button = 0
             }
-            TOOL_RECT -> {
-                ; TODO: this is not how rectangles are supposed to work, but just a first example implementation
-                if mouse_button_pressed {
-                    ; draw rectangle to current position
-                    gfx.rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                             1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                             color_for_button(buttons))
-                    ;cx16.GRAPH_set_colors(color_for_button(buttons), 0, 0)
-                    ;cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                    ;                     1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                    ;                     0, false)
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                }
-            }
-            TOOL_BOX -> {
-                ; TODO: is this how filled rectangles are supposed to work?
-                if mouse_button_pressed {
-                    ; draw box to current position
-                    gfx.fillrect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                                 1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                                 color_for_button(buttons))
-                    ; color = color_for_button(buttons)
-                    ; cx16.GRAPH_set_colors(color, color, 0)
-                    ; cx16.GRAPH_draw_rect(min(mouse_prev_x, mx), min(mouse_prev_y, my),
-                    ;                      1+abs(mouse_prev_x - mx as word) as uword, 1+abs(mouse_prev_y - my as word) as uword,
-                    ;                      0, true)
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                }
-            }
-            TOOL_CIRCLE -> {
-                ; TODO: this is not how circles are supposed to work, but just a first example implementation
-                if mouse_button_pressed {
-                    ; draw disc to current position
-                    color = color_for_button(buttons)
-                    gfx.safe_circle(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                }
-            }
-            TOOL_DISC -> {
-                ; TODO: is this how filled circles are supposed to work?
-                if mouse_button_pressed {
-                    ; draw disc to current position
-                    color = color_for_button(buttons)
-                    gfx.safe_disc(mouse_prev_x, mouse_prev_y, radius(mouse_prev_x, mouse_prev_y, mx, my), color_for_button(buttons))
-                } else {
-                    ; start new position
-                    mouse_prev_x = mx
-                    mouse_prev_y = my
-                }
-            }
-            TOOL_FILL -> {
-                gfx.fill(cx16.r0, cx16.r1, color_for_button(buttons))
+        } else {
+            if buttons {
+                ; user starts pressing a button, drawing starts
+                dragging_with_button = buttons
+                mouse_drag_start_x = mx
+                mouse_drag_start_y = my
             }
         }
+    }
+
+    sub drawrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
+        gfx.rect(min(x1, x2), min(y1, y2),
+                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as uword,
+                 color)
+    }
+
+    sub drawfillrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
+        gfx.fillrect(min(x1, x2), min(y1, y2),
+                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as uword,
+                 color)
     }
 
     sub radius(uword x1, uword y1, uword x2, uword y2) -> ubyte {
