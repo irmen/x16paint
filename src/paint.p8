@@ -3,13 +3,13 @@
 
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted = color picker 0-15 ? but what about all the other colors
-; TODO: file picker for load
+; TODO: drive number chooser and file picker for load
 ; TODO: crosshair mouse cursor instead of pointer
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
 ; TODO: palette editing
 ; TODO: text tool?
-; TODO: read/write the new BMX file format
+; TODO: finalize load/save to final BMX spec once released, move bmx module into prog8 library itself.
 
 
 %import syslib
@@ -17,9 +17,12 @@
 %import diskio
 %import string
 %import drawing
+%import bmx
+%option no_sysinit
 
 main {
     sub start() {
+        cx16.rombank(0)        ; switch to kernal rom (for faster file i/o)
         gfx.init()
         drawing.init()
         drawing.reset_undo()
@@ -409,63 +412,6 @@ commands {
         menu.draw()
     }
 
-    sub save() {
-        uword filename = menu.input(26, "Save", "Enter filename, empty=abort")
-        ubyte filename_len = string.length(filename)
-        if filename==0 or filename_len==0 {
-            menu.draw()
-            return
-        }
-
-        menu.message("Info", "Saving...")
-        bool success = false
-
-        ; This uses the Golden Ram $0400-$07ff as buffer for VRAM.
-        ; Save the image. The 320x240x256C image is exactly 75K data at vram $00000
-        if diskio.f_open_w(filename) {
-            cx16.r0 = diskio.status()
-            if cx16.r0[0]!='0' {
-                menu.message("Error", cx16.r0)
-                sys.wait(120)
-                success = true    ; don't repeat error message
-                goto end_save
-            }
-
-            cx16.vaddr(0,0,0,1)
-            repeat 75 {
-                cx16.r0 = $0400
-                repeat 1024 {
-                    @(cx16.r0) = cx16.VERA_DATA0
-                    cx16.r0++
-                }
-                if not diskio.f_write($0400, 1024)
-                    goto end_save
-            }
-            diskio.f_close_w()
-
-            ; Save the palette. 2 pages at vram $1fa00
-            make_palette_filename(filename, filename_len)
-            diskio.delete(filename)
-            if diskio.f_open_w(filename) {
-                cx16.vaddr(1,$fa00,0,1)
-                cx16.r0 = $0400
-                repeat 512 {
-                    @(cx16.r0) = cx16.VERA_DATA0
-                    cx16.r0++
-                }
-                success = diskio.f_write($0400, 512)
-            }
-        }
-
-end_save:
-        if not success {
-            menu.message("Error", diskio.status())
-            sys.wait(120)
-        }
-        diskio.f_close_w()
-        menu.draw()
-    }
-
     sub load() {
         uword filename = menu.input(26, "Load", "Enter filename, empty=abort")
         ubyte filename_len = string.length(filename)
@@ -474,39 +420,62 @@ end_save:
             return
         }
 
-        menu.message("Info", "Loading...")
-        if diskio.vload_raw(filename, 0, $0000) {
-            make_palette_filename(filename, filename_len)
-            if diskio.vload_raw(filename, 1, $fa00) {
-                drawing.reset_undo()
-                menu.toggle()
-                return
-            }  else {
-                  menu.message("Error", "palette file not found")
-                  sys.wait(100)
-            }
-        } else {
-            menu.message("Error", "image file not found")
-            sys.wait(100)
-        }
+        if not string.endswith(filename, ".bmx")
+            void string.append(filename, ".bmx")
 
-        menu.message("Error", diskio.status())
-        sys.wait(120)
-        menu.draw()
+        menu.message("Info", "Loading...")
+        bmx.max_width = gfx.width
+        bmx.max_height = gfx.height
+        if bmx.load(diskio.drivenumber, filename, 0, 0, gfx.width) {
+            drawing.reset_undo()
+            menu.toggle()
+        } else {
+            menu.message("Error", bmx.error_message)
+            sys.wait(120)
+            menu.draw()
+        }
     }
 
-    sub make_palette_filename(str filename, ubyte length) {
-        if length>4 and filename[length-4]=='.' {
-            filename[length-3] = 'p'
-            filename[length-2] = 'a'
-            filename[length-1] = 'l'
-        } else {
-            filename[length] = '.'
-            filename[length+1] = 'p'
-            filename[length+2] = 'a'
-            filename[length+3] = 'l'
-            filename[length+4] = 0
+    sub save() {
+        uword filename = menu.input(26, "Save", "Enter filename, empty=abort")
+        ubyte filename_len = string.length(filename)
+        if filename==0 or filename_len==0 {
+            menu.draw()
+            return
         }
+
+        if not string.endswith(filename, ".bmx")
+            void string.append(filename, ".bmx")
+
+        menu.message("Info", "Saving...")
+
+        bmx.set_bpp(8)
+        bmx.width = gfx.width
+        bmx.height = gfx.height
+        bmx.border = 0
+        bmx.palette_entries = 0     ; means: 256, all of them
+        bmx.palette_start = 0
+
+        if diskio.f_open_w(filename) {
+            cx16.r0 = diskio.status()
+            if cx16.r0[0]!='0' {
+                menu.message("Error", cx16.r0)
+                goto save_msg_exit
+            }
+            diskio.reset_write_channel()
+            if bmx.save(0, 0, gfx.width) {
+                diskio.f_close_w()
+                menu.draw()
+                return
+            }
+            diskio.f_close_w()
+            menu.message("Error", bmx.error_message)
+            goto save_msg_exit
+        }
+        menu.message("Error", diskio.status())
+save_msg_exit:
+        sys.wait(120)
+        menu.draw()
     }
 
     sub quit() {
