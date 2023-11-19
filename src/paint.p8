@@ -1,15 +1,19 @@
 ; Paint program for the Commander X16.
 ; This is the main program and menu logic.
 
+; TODO: add Help command (use 80x60 screen mode and X16Edit to load the help text. How to return to paint program?)
+; TODO: finalize load/save to final BMX spec once released, move bmx module into prog8 library itself.
 ; TODO: undo+redo
-; TODO: 1-8 and shifted = color picker 0-15 ? but what about all the other colors
-; TODO: drive number chooser and file picker for load
-; TODO: crosshair mouse cursor instead of pointer
+; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
+; TODO: Command to set drive number 8 or 9
+; TODO: file picker for load, file list before save?
+; TODO: crosshair mouse cursor instead of pointer, or perhaps even a different cursor per tool
+; TODO: load and save just the palette (to/from a BMX file or raw 512 bytes)
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
-; TODO: palette editing
+; TODO: palette editing, or rely on an external tool for this?
+; TODO: show x/y coordinates of the mouse cursor somewhere when you press a modifier key like CTRL or toggle it maybe
 ; TODO: text tool?
-; TODO: finalize load/save to final BMX spec once released, move bmx module into prog8 library itself.
 
 
 %import syslib
@@ -456,25 +460,10 @@ commands {
         bmx.palette_entries = 0     ; means: 256, all of them
         bmx.palette_start = 0
 
-        if diskio.f_open_w(filename) {
-            cx16.r0 = diskio.status()
-            if cx16.r0[0]!='0' {
-                menu.message("Error", cx16.r0)
-                goto save_msg_exit
-            }
-            diskio.reset_write_channel()
-            if bmx.save(0, 0, gfx.width) {
-                diskio.f_close_w()
-                menu.draw()
-                return
-            }
-            diskio.f_close_w()
+        if not bmx.save(diskio.drivenumber, filename, 0, 0, 0) {
             menu.message("Error", bmx.error_message)
-            goto save_msg_exit
+            sys.wait(120)
         }
-        menu.message("Error", diskio.status())
-save_msg_exit:
-        sys.wait(120)
         menu.draw()
     }
 

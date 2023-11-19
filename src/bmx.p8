@@ -20,29 +20,14 @@ bmx {
     uword max_width = 0         ; should you want load() to check for this
     uword max_height = 0        ; should you want load() to check for this
 
-    sub set_bpp(ubyte bpp) {
-        bitsperpixel = bpp
-        vera_colordepth = 0
-        when bpp {
-            2 -> vera_colordepth = 1
-            4 -> vera_colordepth = 2
-            8 -> vera_colordepth = 3
-        }
-    }
-
-    sub set_vera_colordepth(ubyte depth) {
-        vera_colordepth = depth
-        bitsperpixel = 1 << depth
-    }
-
     sub load(ubyte drivenumber, str filename, ubyte vbank, uword vaddr, uword screen_width) -> bool {
-        ; Loads a BMX bitmap image and palette into vram.
+        ; Loads a BMX bitmap image and palette into vram. (and Header info into the bmx.* variables)
         ; Parameters:
         ; the drive number and filename to load,
         ; the vram bank and address where the bitmap data should go,
         ; and the width of the current screen mode (can be 0 if you know no padding is needed).
         ; You can set the max_width and max_height variables first, if you want this routine to check those.
-        ; Returns: success status, if false, error_message points to the error message string.
+        ; Returns: success status. If false, error_message points to the error message string.
         error_message = 0
         ubyte old_drivenumber = diskio.drivenumber
         diskio.drivenumber = drivenumber
@@ -63,9 +48,7 @@ bmx {
                         goto load_end
                     }
                     if load_palette() {
-                        if load_bitmap(vbank, vaddr, screen_width)
-                            goto load_end
-                        else
+                        if not load_bitmap(vbank, vaddr, screen_width)
                             error_message = "bitmap error"
                     } else
                         error_message = "palette error"
@@ -82,24 +65,55 @@ load_end:
         return error_message==0
     }
 
-    ; TODO supply image width & height too!!! And drive number, and file name!
-    sub save(ubyte vbank, uword vaddr, uword screen_width) -> bool {
-        ; Save bitmap and palette data from vram into a BMX file. Returns success t
-        ; You supply vram bank and address to read the bitmap data from, and the width of the current screen mode.
-        ; Returns: success status, if false, error_message points to the error message string.
-        width = min(width, screen_width)
+    sub save(ubyte drivenumber, str filename, ubyte vbank, uword vaddr, uword screen_width) -> bool {
+        ; Save bitmap and palette data from vram into a BMX file.
+        ; First you must have set all bmx.* variables to the correct values! (like width, height..)
+        ; Parameters:
+        ; drive number and filename to save to,
+        ; vram bank and address of the bitmap data to save,
+        ; and the width of the current screen mode (or 0 if you know no padding is needed).
+        ; Returns: success status. If false, error_message points to the error message string.
         error_message = 0
-        if save_header() {
-            if save_palette() {
-                if save_bitmap(vbank, vaddr, screen_width) {
-                    return true
+        ubyte old_drivenumber = diskio.drivenumber
+        diskio.drivenumber = drivenumber
+        if diskio.f_open_w(filename) {
+            cx16.r0 = diskio.status()
+            if cx16.r0[0]!='0' {
+                error_message = cx16.r0
+                goto save_end
+            }
+            diskio.reset_write_channel()
+            if screen_width
+                width = min(width, screen_width)
+            if save_header() {
+                if save_palette() {
+                    if not save_bitmap(vbank, vaddr, screen_width)
+                        error_message = "bitmap error"
                 } else
-                    error_message = "bitmap error"
+                    error_message = "palette error"
             } else
-                error_message = "palette error"
+                error_message = "header error"
         } else
-            error_message = "header error"
-        return false
+             error_message = diskio.status()
+save_end:
+        diskio.f_close_w()
+        diskio.drivenumber = old_drivenumber
+        return error_message==0
+    }
+
+    sub set_bpp(ubyte bpp) {
+        bitsperpixel = bpp
+        vera_colordepth = 0
+        when bpp {
+            2 -> vera_colordepth = 1
+            4 -> vera_colordepth = 2
+            8 -> vera_colordepth = 3
+        }
+    }
+
+    sub set_vera_colordepth(ubyte depth) {
+        vera_colordepth = depth
+        bitsperpixel = 1 << depth
     }
 
 ; ------------------- helper routines -------------------------
@@ -149,18 +163,30 @@ load_end:
     sub load_bitmap(ubyte vbank, uword vaddr, uword screenwidth) -> bool {
         ; load contiguous bitmap into vram from the currently active input file
         cx16.vaddr(vbank, vaddr, 0, 1)
-        cx16.r1 = bytes_per_scanline()
-        cx16.r2 = pad_bytes_per_scanline(screenwidth)
-        ; TODO use MACPTR
+        cx16.r1 = bytes_per_scanline(width)
+        cx16.r2 = 0
+        if width<screenwidth
+            cx16.r2 = bytes_per_scanline(screenwidth-width)     ; padding per scanline
         repeat height {
-            repeat cx16.r1 {
-                cx16.VERA_DATA0  = cbm.CHRIN()
-            }
-            repeat cx16.r2 {
+            read_scanline(cx16.r1)
+            repeat cx16.r2
                 cx16.VERA_DATA0 = 0     ; pad out if image width < screen width
-            }
         }
-        return cbm.READST() & $40    ; eof?
+        return cbm.READST()==0 or cbm.READST()&$40    ; eof?
+
+        sub read_scanline(uword size) {
+            while size {
+                cx16.r0 = cx16.MACPTR(min(255, size) as ubyte, &cx16.VERA_DATA0, true)
+                if_cs {
+                    ; no MACPTR support
+                    repeat size
+                        cx16.VERA_DATA0 = cbm.CHRIN()
+                    return
+                }
+                size -= cx16.r0
+            }
+            return
+        }
     }
 
     sub save_header() -> bool {
@@ -175,7 +201,6 @@ load_end:
     sub save_palette() -> bool {
         ; save full palette straight out of vram to the currently active output file
         cx16.vaddr(1, $fa00, 0, 1)
-        ; TODO use MCIOUT
         repeat 512
             cbm.CHROUT(cx16.VERA_DATA0)
         return not cbm.READST()
@@ -184,12 +209,12 @@ load_end:
     sub save_bitmap(ubyte vbank, uword vaddr, uword screenwidth) -> bool {
         ; save contiguous bitmap from vram to the currently active output file
         cx16.vaddr(vbank, vaddr, 0, 1)
-        ; TODO use MCIOUT
-        cx16.r1 = bytes_per_scanline()
-        cx16.r2 = pad_bytes_per_scanline(screenwidth)
+        cx16.r1 = bytes_per_scanline(width)
+        cx16.r2 = 0
+        if width<screenwidth
+            cx16.r2 = bytes_per_scanline(screenwidth-width)     ; padding per scanline
         repeat height {
-            repeat cx16.r1
-                cbm.CHROUT(cx16.VERA_DATA0)
+            write_scanline(cx16.r1)
             repeat cx16.r2 {
                 %asm {{
                     lda  cx16.VERA_DATA0        ; just read away padding bytes
@@ -197,29 +222,33 @@ load_end:
             }
         }
         return not cbm.READST()
-    }
 
-    sub bytes_per_scanline() -> uword {
-        when bitsperpixel {
-            1 -> return width/8
-            2 -> return width/4
-            4 -> return width/2
-            8 -> return width
-            else -> return 0
-        }
-    }
-
-    sub pad_bytes_per_scanline(uword screenwidth) -> uword {
-        if width<screenwidth {
-            screenwidth-=width
-            when bitsperpixel {
-                1 -> return screenwidth/8
-                2 -> return screenwidth/4
-                4 -> return screenwidth/2
-                8 -> return screenwidth
+        sub write_scanline(uword size) {
+            while size {
+                cx16.r0L = lsb(size)
+                if msb(size)
+                    cx16.r0L = 0        ; 256 bytes
+                cx16.r0 = cx16.MCIOUT(cx16.r0L, &cx16.VERA_DATA0, true)
+                if_cs {
+                    ; no MCIOUT support
+                    repeat size
+                        cbm.CHROUT(cx16.VERA_DATA0)
+                    return
+                }
+                size -= cx16.r0
             }
         }
-        return 0
+    }
+
+    sub bytes_per_scanline(uword w) -> uword {
+        when bitsperpixel {
+            1 -> cx16.r0L = 3
+            2 -> cx16.r0L = 2
+            4 -> cx16.r0L = 1
+            8 -> return w
+            else -> return 0
+        }
+        return w >> cx16.r0L
     }
 
     sub build_header() {
