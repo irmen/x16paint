@@ -12,6 +12,7 @@
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
 ; TODO: palette editing, or rely on an external tool for this?
+; TODO: split palette, the menu should have the 16 default colors active to keep it readable, while the palette below has all correct colors.
 ; TODO: show x/y coordinates of the mouse cursor somewhere when you press a modifier key like CTRL or toggle it maybe
 ; TODO: text tool?
 
@@ -408,10 +409,12 @@ commands {
 
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
-            gfx.clear_screen(drawing.selected_color1, drawing.selected_color2)
+            ; TODO set palette to default?
+            gfx.init()
             drawing.reset_undo()
-            menu.message("Info", "Cleared with Col.2")
-            sys.wait(60)
+            drawing.active_tool = drawing.TOOL_DRAW
+            menu.toggle()
+            return
         }
         menu.draw()
     }
@@ -431,6 +434,12 @@ commands {
         bmx.max_width = gfx.width
         bmx.max_height = gfx.height
         if bmx.load(diskio.drivenumber, filename, 0, 0, gfx.width) {
+            if bmx.bitsperpixel!=8 {
+                menu.message("Error", "Can only work with 256 color images")
+                sys.wait(120)
+                menu.draw()
+                return
+            }
             drawing.reset_undo()
             menu.toggle()
         } else {
@@ -457,6 +466,7 @@ commands {
         bmx.width = gfx.width
         bmx.height = gfx.height
         bmx.border = 0
+        bmx.compression = 0
         bmx.palette_entries = 0     ; means: 256, all of them
         bmx.palette_start = 0
 

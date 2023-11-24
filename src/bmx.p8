@@ -1,4 +1,5 @@
-; routines to load and save "BMX" files (commander X16 bitmap format)
+; Routines to load and save "BMX" files (commander X16 bitmap format) Rev5
+; Only uncompressed images are supported for now.
 ; TODO: move this into prog8 cx16 library itself
 
 %import diskio
@@ -13,8 +14,9 @@ bmx {
     uword width
     uword height
     ubyte border
-    ubyte palette_entries
+    ubyte palette_entries       ; 0 means 256, all of them
     ubyte palette_start
+    ubyte compression
 
     uword error_message         ; pointer to error message, or 0 if all ok
     uword max_width = 0         ; should you want load() to check for this
@@ -47,6 +49,10 @@ bmx {
                         error_message = "image too large"
                         goto load_end
                     }
+                    if compression {
+                        error_message = "compression not supported"
+                        goto load_end
+                    }
                     if load_palette() {
                         if not load_bitmap(vbank, vaddr, screen_width)
                             error_message = "bitmap error"
@@ -73,6 +79,10 @@ load_end:
         ; vram bank and address of the bitmap data to save,
         ; and the width of the current screen mode (or 0 if you know no padding is needed).
         ; Returns: success status. If false, error_message points to the error message string.
+        if compression {
+            error_message = "compression not supported"
+            return false
+        }
         error_message = 0
         ubyte old_drivenumber = diskio.drivenumber
         diskio.drivenumber = drivenumber
@@ -126,32 +136,10 @@ save_end:
         return not cbm.READST()
     }
 
-    sub parse_header() -> bool {
-        if header[0]==FILEID[0] and header[1]==FILEID[1] and header[2]==FILEID[2] {
-            if header[3]==1 {       ; only version 1 supported for now
-                bitsperpixel = header[4]
-                vera_colordepth = header[5]
-                width = peekw(&header+6)
-                height = peekw(&header+8)
-                border = header[10]
-                palette_entries = header[11]
-                palette_start = header[12]
-                return true
-            }
-        }
-        return false
-    }
-
     sub load_palette() -> bool {
         ; load palette data from the currently active input file
-        uword palette_addr = $fa00
-        repeat palette_start {
-            void cbm.CHRIN()
-            void cbm.CHRIN()
-            palette_addr += 2
-        }
+        cx16.vaddr(1, $fa00+palette_start*2, 0, 1)
         cx16.r0L = palette_entries
-        cx16.vaddr(1, palette_addr, 0, 1)
         do {
             cx16.VERA_DATA0 = cbm.CHRIN()
             cx16.VERA_DATA0 = cbm.CHRIN()
@@ -200,9 +188,13 @@ save_end:
 
     sub save_palette() -> bool {
         ; save full palette straight out of vram to the currently active output file
-        cx16.vaddr(1, $fa00, 0, 1)
-        repeat 512
+        cx16.vaddr(1, $fa00+palette_start*2, 0, 1)
+        cx16.r0L = palette_entries
+        do {
             cbm.CHROUT(cx16.VERA_DATA0)
+            cbm.CHROUT(cx16.VERA_DATA0)
+            cx16.r0L--
+        } until cx16.r0L==0
         return not cbm.READST()
     }
 
@@ -251,10 +243,29 @@ save_end:
         return w >> cx16.r0L
     }
 
+    sub parse_header() -> bool {
+        if header[0]==FILEID[0] and header[1]==FILEID[1] and header[2]==FILEID[2] {
+            if header[3]==1 {       ; only version 1 supported for now
+                bitsperpixel = header[4]
+                vera_colordepth = header[5]
+                width = peekw(&header+6)
+                height = peekw(&header+8)
+                palette_entries = header[10]
+                palette_start = header[11]
+                ; Data start is not needed
+                compression = header[14]
+                border = header[31]
+                return true
+            }
+        }
+        return false
+    }
+
     sub build_header() {
         ; build the internal BMX header structure
         ; normally you don't have to call this yourself
         sys.memset(header, sizeof(header), 0)
+        uword data_offset = sizeof(header) + palette_entries*2
         header[0] = FILEID[0]
         header[1] = FILEID[1]
         header[2] = FILEID[2]
@@ -265,8 +276,11 @@ save_end:
         header[7] = msb(width)
         header[8] = lsb(height)
         header[9] = msb(height)
-        header[10] = border
-        header[11] = palette_entries
-        header[12] = palette_start
+        header[10] = palette_entries
+        header[11] = palette_start
+        header[12] = lsb(data_offset)
+        header[13] = msb(data_offset)
+        header[14] = compression
+        header[31] = border
     }
 }
