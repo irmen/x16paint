@@ -1,14 +1,14 @@
 ; Paint program for the Commander X16.
 ; This is the main program and menu logic.
 
-; TODO: add Help command (use 80x60 screen mode and X16Edit to load the help text. How to return to paint program?)
+; TODO: add Help command (use 80x30 screen mode for the help text?)
 ; TODO: finalize load/save to final BMX spec once released, move bmx module into prog8 library itself.
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: Command to set drive number 8 or 9
 ; TODO: file picker for load, file list before save?
 ; TODO: crosshair mouse cursor instead of pointer, or perhaps even a different cursor per tool
-; TODO: load and save just the palette (to/from a BMX file or raw 512 bytes)
+; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
 ; TODO: palette editing, or rely on an external tool for this?
@@ -27,7 +27,6 @@
 
 main {
     sub start() {
-        cx16.rombank(0)        ; switch to kernal rom (for faster file i/o)
         gfx.init()
         drawing.init()
         drawing.reset_undo()
@@ -43,7 +42,7 @@ main {
         txt.clear_screen()
         txt.print("\n\n    Commander X16 PAINT\n\n")
         txt.color(11)
-        txt.print("    DesertFish ▒ Prog8")
+        txt.print("    DesertFish ▒ Prog8 ▒ version 0.5")
         txt.color(14)
         txt.print("\n\n\n\n    Instructions:\n\n\n")
         txt.print("   - Use the mouse to paint stuff.\n")

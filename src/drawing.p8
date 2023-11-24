@@ -124,7 +124,7 @@ drawing {
                         gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
                     }
                     TOOL_FILL -> {
-                        gfx.fill(cx16.r0, cx16.r1, color)
+                        gfx.fill(cx16.r0, cx16.r1L, color)
                     }
                 }
                 dragging_with_button = 0
@@ -140,14 +140,14 @@ drawing {
     }
 
     sub drawrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
-        gfx.rect(min(x1, x2), min(y1, y2),
-                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as uword,
+        gfx.rect(min(x1, x2), lsb(min(y1, y2)),
+                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as ubyte,
                  color)
     }
 
     sub drawfillrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
-        gfx.fillrect(min(x1, x2), min(y1, y2),
-                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as uword,
+        gfx.fillrect(min(x1, x2), lsb(min(y1, y2)),
+                 1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as ubyte,
                  color)
     }
 

@@ -3,9 +3,6 @@
 ; NOTE: can't really use the kernal graphics routines because we need to be able
 ;       to draw non-destructively by EORing the color.
 
-; TODO all Y coordinates could be in 1 byte because max is 240
-
-
 gfx {
     ; read-only control variables:
     ; fixed screen mode 320x240x256C
@@ -26,7 +23,7 @@ gfx {
         cx16.GRAPH_clear()
     }
 
-    sub rect(uword xx, uword yy, uword rwidth, uword rheight, ubyte color) {
+    sub rect(uword xx, ubyte yy, uword rwidth, ubyte rheight, ubyte color) {
         if rwidth==0 or rheight==0
             return
         horizontal_line(xx, yy, rwidth, color)
@@ -39,7 +36,7 @@ gfx {
         vertical_line(xx+rwidth-1, yy+1, rheight-2, color)
     }
 
-    sub fillrect(uword xx, uword yy, uword rwidth, uword rheight, ubyte color) {
+    sub fillrect(uword xx, ubyte yy, uword rwidth, ubyte rheight, ubyte color) {
         ; Draw a filled rectangle of the given size and color.
         ; To fill the whole screen, use clear_screen(color) instead - it is much faster.
         if rwidth==0
@@ -50,7 +47,7 @@ gfx {
         }
     }
 
-    sub horizontal_line(uword xx, uword yy, uword length, ubyte color) {
+    sub horizontal_line(uword xx, ubyte yy, uword length, ubyte color) {
         if length==0
             return
         position(xx, yy)
@@ -97,7 +94,7 @@ gfx {
         }
     }
 
-    sub safe_horizontal_line(uword xx, uword yy, uword length, ubyte color) {
+    sub safe_horizontal_line(uword xx, ubyte yy, uword length, ubyte color) {
         ; does bounds checking and clipping
         if msb(yy)&$80!=0 or yy>=height
             return
@@ -115,7 +112,7 @@ gfx {
         horizontal_line(xx, yy, length, color)
     }
 
-    sub vertical_line(uword xx, uword yy, uword lheight, ubyte color) {
+    sub vertical_line(uword xx, ubyte yy, uword lheight, ubyte color) {
         ; set vera auto-increment to 320 pixel increment (=next line)
         position(xx,yy)
         cx16.VERA_ADDR_H = cx16.VERA_ADDR_H & %00000111 | (14<<4)
@@ -160,13 +157,13 @@ gfx {
         word @zp dy = (y2 as word)-y1
 
         if dx==0 {
-            vertical_line(x1, y1, abs(dy) as uword +1, color)
+            vertical_line(x1, lsb(y1), abs(dy) as uword +1, color)
             return
         }
         if dy==0 {
             if x1>x2
                 x1=x2
-            horizontal_line(x1, y1, abs(dx) as uword +1, color)
+            horizontal_line(x1, lsb(y1), abs(dx) as uword +1, color)
             return
         }
 
@@ -183,7 +180,7 @@ gfx {
         if dx >= dy {
             if cx16.r1L {
                 repeat {
-                    plot(cx16.r14, y1, color)
+                    plot(cx16.r14, lsb(y1), color)
                     if cx16.r14==x2
                         return
                     cx16.r14++
@@ -195,7 +192,7 @@ gfx {
                 }
             } else {
                 repeat {
-                    plot(cx16.r14, y1, color)
+                    plot(cx16.r14, lsb(y1), color)
                     if cx16.r14==x2
                         return
                     cx16.r14--
@@ -210,7 +207,7 @@ gfx {
         else {
             if cx16.r1L {
                 repeat {
-                    plot(cx16.r14, y1, color)
+                    plot(cx16.r14, lsb(y1), color)
                     if y1 == y2
                         return
                     y1++
@@ -222,7 +219,7 @@ gfx {
                 }
             } else {
                 repeat {
-                    plot(cx16.r14, y1, color)
+                    plot(cx16.r14, lsb(y1), color)
                     if y1 == y2
                         return
                     y1++
@@ -294,10 +291,10 @@ gfx {
         word @zp decisionOver2 = (1 as word)-radius
 
         while radius>=yy {
-            safe_horizontal_line(xcenter-radius, ycenter+yy, radius*$0002+1, color)
-            safe_horizontal_line(xcenter-radius, ycenter-yy, radius*$0002+1, color)
-            safe_horizontal_line(xcenter-yy, ycenter+radius, yy*$0002+1, color)
-            safe_horizontal_line(xcenter-yy, ycenter-radius, yy*$0002+1, color)
+            safe_horizontal_line(xcenter-radius, lsb(ycenter+yy), radius*$0002+1, color)
+            safe_horizontal_line(xcenter-radius, lsb(ycenter-yy), radius*$0002+1, color)
+            safe_horizontal_line(xcenter-yy, lsb(ycenter+radius), yy*$0002+1, color)
+            safe_horizontal_line(xcenter-yy, lsb(ycenter-radius), yy*$0002+1, color)
             yy++
             if decisionOver2>=0 {
                 radius--
@@ -308,7 +305,7 @@ gfx {
         }
     }
 
-    sub plot(uword @zp xx, uword @zp yy, ubyte @zp color) {
+    sub plot(uword @zp xx, ubyte @zp yy, ubyte @zp color) {
         void addr_mul_24_for_lores_256c(yy, xx)      ; 24 bits result is in r0 and r1L (highest byte)
         %asm {{
             stz  cx16.VERA_CTRL
@@ -336,10 +333,10 @@ gfx {
             return
         if xx >= width or yy >= height
             return
-        plot(xx, yy, color)
+        plot(xx, lsb(yy), color)
     }
 
-    sub pget(uword @zp xx, uword yy) -> ubyte {
+    sub pget(uword @zp xx, ubyte yy) -> ubyte {
         void addr_mul_24_for_lores_256c(yy, xx)      ; 24 bits result is in r0 and r1L (highest byte)
         %asm {{
             stz  cx16.VERA_CTRL
@@ -355,7 +352,7 @@ gfx {
         return cx16.r0L
     }
 
-    sub fill(uword x, uword y, ubyte new_color) {
+    sub fill(uword x, ubyte y, ubyte new_color) {
         ; Non-recursive scanline flood fill.
         ; based loosely on code found here https://www.codeproject.com/Articles/6017/QuickFill-An-efficient-flood-fill-algorithm
         ; with the fixes applied to the seedfill_4 routine as mentioned in the comments.
@@ -429,7 +426,7 @@ gfx {
             }}
             yy+=dy
         }
-        cx16.r11L = pget(xx as uword, yy as uword)        ; old_color
+        cx16.r11L = pget(xx as uword, lsb(yy))        ; old_color
         if cx16.r11L == cx16.r10L
             return
         if xx<0 or xx>width-1 or yy<0 or yy>height-1
@@ -442,12 +439,12 @@ gfx {
             xx = x1
             ; TODO: if mode==1 (256c) use vera autodecrement instead of pget(), but code bloat not worth it?
             while xx >= 0 {
-                if pget(xx as uword, yy as uword) != cx16.r11L
+                if pget(xx as uword, lsb(yy)) != cx16.r11L
                     break
                 xx--
             }
             if x1!=xx
-                horizontal_line(xx as uword+1, yy as uword, x1-xx as uword, cx16.r10L)
+                horizontal_line(xx as uword+1, lsb(yy), x1-xx as uword, cx16.r10L)
             else
                 goto skip
 
@@ -460,12 +457,12 @@ gfx {
                 cx16.r9 = xx
                 ; TODO: if mode==1 (256c) use vera autoincrement instead of pget(), but code bloat not worth it?
                 while xx <= width-1 {
-                    if pget(xx as uword, yy as uword) != cx16.r11L
+                    if pget(xx as uword, lsb(yy)) != cx16.r11L
                         break
                     xx++
                 }
                 if cx16.r9!=xx
-                    horizontal_line(cx16.r9, yy as uword, (xx as uword)-cx16.r9, cx16.r10L)
+                    horizontal_line(cx16.r9, yy as ubyte, (xx as uword)-cx16.r9, cx16.r10L)
 
                 push_stack(left, xx - 1, yy, dy)
                 if xx > x2 + 1
@@ -473,7 +470,7 @@ gfx {
 skip:
                 xx++
                 while xx <= x2 {
-                    if pget(xx as uword, yy as uword) == cx16.r11L
+                    if pget(xx as uword, lsb(yy)) == cx16.r11L
                         break
                     xx++
                 }
@@ -482,23 +479,21 @@ skip:
         }
     }
 
-    sub position(uword @zp xx, uword yy) {
+    sub position(uword @zp xx, ubyte yy) {
         void addr_mul_24_for_lores_256c(yy, xx)      ; 24 bits result is in r0 and r1L (highest byte)
         cx16.r2L = cx16.r1L
         cx16.vaddr(cx16.r2L, cx16.r0, 0, 1)
     }
 
-    asmsub addr_mul_24_for_lores_256c(uword yy @R0, uword xx @AY) clobbers(A) -> uword @R0, ubyte @R1  {
+    asmsub addr_mul_24_for_lores_256c(ubyte yy @X, uword xx @AY) clobbers(A) -> uword @R0, ubyte @R1  {
         ; yy * 320 + xx (24 bits calculation)
         %asm {{
             sta  P8ZP_SCRATCH_W1
             sty  P8ZP_SCRATCH_W1+1
-            lda  cx16.r0
-            sta  P8ZP_SCRATCH_B1
-            lda  cx16.r0+1
-            sta  cx16.r1
-            sta  P8ZP_SCRATCH_REG
-            lda  cx16.r0
+            stx  P8ZP_SCRATCH_B1
+            stz  cx16.r1
+            stz  P8ZP_SCRATCH_REG
+            txa
             asl  a
             rol  P8ZP_SCRATCH_REG
             asl  a
