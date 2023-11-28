@@ -1,8 +1,11 @@
 ; Paint program for the Commander X16.
+; BMX file format: see https://cx16forum.com/forum/viewtopic.php?t=6945
+
 ; This is the main program and menu logic.
 
+; TODO: fix large disk drawing not clipping correctly
 ; TODO: add Help command (use 80x30 screen mode for the help text?)
-; TODO: finalize load/save to final BMX spec once released, move bmx module into prog8 library itself.
+; TODO: show x/y coordinates of the mouse cursor somewhere when you press a modifier key like CTRL or toggle it maybe
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: Command to set drive number 8 or 9
@@ -11,9 +14,8 @@
 ; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
+; TODO: palette issue: menu should reset the 16 base colors of the palette, the palette selector to a separate screen that keeps the full 256 custom colors except the top (?)
 ; TODO: palette editing, or rely on an external tool for this?
-; TODO: split palette, the menu should have the 16 default colors active to keep it readable, while the palette below has all correct colors.
-; TODO: show x/y coordinates of the mouse cursor somewhere when you press a modifier key like CTRL or toggle it maybe
 ; TODO: text tool?
 
 
@@ -430,22 +432,46 @@ commands {
             void string.append(filename, ".bmx")
 
         menu.message("Info", "Loading...")
-        bmx.max_width = gfx.width
-        bmx.max_height = gfx.height
-        if bmx.load(diskio.drivenumber, filename, 0, 0, gfx.width) {
-            if bmx.bitsperpixel!=8 {
-                menu.message("Error", "Can only work with 256 color images")
-                sys.wait(120)
-                menu.draw()
-                return
-            }
-            drawing.reset_undo()
-            menu.toggle()
-        } else {
-            menu.message("Error", bmx.error_message)
-            sys.wait(120)
-            menu.draw()
-        }
+        uword error_message=0
+        if bmx.open(diskio.drivenumber, filename) {
+            if bmx.bitsperpixel==8 {
+                if bmx.width<=gfx.width and bmx.height<=gfx.height {
+                    if bmx.width<gfx.width {
+                        ; clear the screen with the border color
+                        cx16.GRAPH_set_colors(0, 0, bmx.border)
+                        cx16.GRAPH_clear()
+                        ; need to use the slower load routine that does padding
+                        ; center the image on the screen nicely
+                        uword offset = (gfx.width-bmx.width)/2 + (gfx.height-bmx.height)/2*gfx.width
+                        if bmx.continue_load_stamp(0,offset,gfx.width) {
+                            drawing.reset_undo()
+                            menu.toggle()
+                            return
+                        } else
+                            error_message = bmx.error_message
+                    } else {
+                        if bmx.continue_load(0,0) {
+                            if bmx.height<gfx.height {
+                                ; fill the remaining bottom part of the screen
+                                cx16.GRAPH_set_colors(bmx.border, bmx.border, 99)
+                                cx16.GRAPH_draw_rect(0, bmx.height, gfx.width, gfx.height-bmx.height, 0, true)
+                            }
+                            drawing.reset_undo()
+                            menu.toggle()
+                            return
+                        } else
+                            error_message = bmx.error_message
+                    }
+                } else
+                    error_message = "image too large"
+            } else
+                error_message="Can only work with 256 color images"
+        } else
+            error_message = bmx.error_message
+
+        menu.message("Error", error_message)
+        sys.wait(120)
+        menu.draw()
     }
 
     sub save() {
@@ -469,7 +495,7 @@ commands {
         bmx.palette_entries = 0     ; means: 256, all of them
         bmx.palette_start = 0
 
-        if not bmx.save(diskio.drivenumber, filename, 0, 0, 0) {
+        if not bmx.save(diskio.drivenumber, filename, 0, 0) {
             menu.message("Error", bmx.error_message)
             sys.wait(120)
         }
