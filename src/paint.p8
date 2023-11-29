@@ -3,7 +3,6 @@
 
 ; This is the main program and menu logic.
 
-; TODO: fix large disk drawing not clipping correctly
 ; TODO: add Help command (use 80x30 screen mode for the help text?)
 ; TODO: show x/y coordinates of the mouse cursor somewhere when you press a modifier key like CTRL or toggle it maybe
 ; TODO: undo+redo
@@ -495,7 +494,7 @@ commands {
         bmx.palette_entries = 0     ; means: 256, all of them
         bmx.palette_start = 0
 
-        if not bmx.save(diskio.drivenumber, filename, 0, 0) {
+        if not bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width) {
             menu.message("Error", bmx.error_message)
             sys.wait(120)
         }

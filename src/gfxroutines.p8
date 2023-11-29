@@ -94,7 +94,7 @@ gfx {
         }
     }
 
-    sub safe_horizontal_line(uword xx, ubyte yy, uword length, ubyte color) {
+    sub safe_horizontal_line(uword xx, uword yy, uword length, ubyte color) {
         ; does bounds checking and clipping
         if msb(yy)&$80!=0 or yy>=height
             return
@@ -109,7 +109,7 @@ gfx {
         if length>width
             return
 
-        horizontal_line(xx, yy, length, color)
+        horizontal_line(xx, lsb(yy), length, color)
     }
 
     sub vertical_line(uword xx, ubyte yy, uword lheight, ubyte color) {
@@ -291,10 +291,10 @@ gfx {
         word @zp decisionOver2 = (1 as word)-radius
 
         while radius>=yy {
-            safe_horizontal_line(xcenter-radius, lsb(ycenter+yy), radius*$0002+1, color)
-            safe_horizontal_line(xcenter-radius, lsb(ycenter-yy), radius*$0002+1, color)
-            safe_horizontal_line(xcenter-yy, lsb(ycenter+radius), yy*$0002+1, color)
-            safe_horizontal_line(xcenter-yy, lsb(ycenter-radius), yy*$0002+1, color)
+            safe_horizontal_line(xcenter-radius, ycenter+yy, radius*$0002+1, color)
+            safe_horizontal_line(xcenter-radius, ycenter-yy, radius*$0002+1, color)
+            safe_horizontal_line(xcenter-yy, ycenter+radius, yy*$0002+1, color)
+            safe_horizontal_line(xcenter-yy, ycenter-radius, yy*$0002+1, color)
             yy++
             if decisionOver2>=0 {
                 radius--
