@@ -23,6 +23,8 @@ drawing {
     ubyte stored_undo_buffers = 0
     ubyte dragging_with_button = 0
     ubyte eor_color
+    uword mouse_x
+    uword mouse_y
 
     sub init() {
         undo_buffers_amount = (cx16.numbanks()-1)/10 as ubyte       ; each undo buffer requires 10 banks
@@ -43,6 +45,9 @@ drawing {
     sub mouse(ubyte buttons, uword mx, uword my) {
         gfx.eor_mode = false
         ubyte circle_radius
+        mouse_x = mx
+        mouse_y = my
+        draw_coordinates()
 
         if dragging_with_button {
             eor_color += 17
@@ -187,9 +192,9 @@ drawing {
 
     sub undo() {
         if undo_buffers_amount==0 or next_undo_buffer==0
-            notification.show("Undo not available")
+            menu.notification("Undo not available")
         else {
-            notification.show("Undo")
+            menu.notification("Undo")
             next_undo_buffer--
             restore_buffer(next_undo_buffer)
             ; TODO cycle multiple buffers
@@ -198,9 +203,9 @@ drawing {
 
     sub redo() {
         if undo_buffers_amount==0 or next_undo_buffer==stored_undo_buffers
-            notification.show("Redo not available")
+            menu.notification("Redo not available")
         else {
-            notification.show("Redo")
+            menu.notification("Redo")
             restore_buffer(next_undo_buffer)
             next_undo_buffer++
             ; TODO cycle multiple buffers
@@ -217,5 +222,42 @@ drawing {
             cx16.FB_set_pixels($a000, 320*24)       ; TODO this overflows the screen at the end!?
         }
         cx16.rambank(prev_rambank)
+    }
+
+    bool coordinates_shown = false
+
+    sub draw_coordinates() {
+        str[] tools = [0, "draw", "line", "rectangle", "box", "circle", "disc", "erase", "fill"]
+
+        if coordinates_shown {
+            txt.plot(3,27)
+            txt.color2(6,15)
+            txt.print("pos: ")
+            txt.print_uw(mouse_x)
+            txt.chrout(',')
+            txt.print_uw(mouse_y)
+            txt.print(" [")
+            txt.print_ub0(selected_color1)
+            txt.chrout(';')
+            txt.print_ub0(selected_color2)
+            txt.print("] ")
+            txt.print(tools[active_tool])
+            txt.print("  ")
+        }
+    }
+
+    sub show_coordinates(bool show) {
+        if menu.active or colors.active
+            return
+        if show {
+            coordinates_shown = true
+            draw_coordinates()
+            main.enable_text_layer()
+        } else {
+            if coordinates_shown {
+                coordinates_shown = false
+                main.disable_text_layer()
+            }
+        }
     }
 }
