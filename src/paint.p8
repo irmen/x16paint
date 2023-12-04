@@ -339,6 +339,10 @@ menu {
         }
     }
 
+    sub restore_palette() {
+        palette.set_rgb(&palette_backup, len(palette_backup))
+    }
+
     sub show() {
         active = true
         draw()
@@ -350,7 +354,7 @@ menu {
     sub hide() {
         active = false
         main.disable_text_layer()
-        palette.set_rgb(&palette_backup, len(palette_backup))
+        restore_palette()
         txt.color2(1,0)
         txt.clear_screen()
     }
@@ -502,19 +506,24 @@ commands {
 
         menu.message("Info", "Saving...")
 
+        menu.restore_palette()   ; note: could also reconstruct the original palette in a buffer and let bmx.save() use that...
         bmx.set_bpp(8)
         bmx.width = gfx.width
         bmx.height = gfx.height
         bmx.border = 0
         bmx.compression = 0
-        bmx.palette_entries = 0     ; means: 256, all of them
+        bmx.palette_entries = 256
         bmx.palette_start = 0
+        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width)
+        palette.set_default16()
 
-        if not bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width) {
+        if success {
+            menu.draw()
+        }
+        else {
             menu.message("Error", bmx.error_message)
             sys.wait(120)
         }
-        menu.draw()
     }
 
     sub quit() {
