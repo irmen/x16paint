@@ -3,6 +3,8 @@
 
 ; This is the main program and menu logic.
 
+; TODO: slight underline under the hotkeys in the menu?
+; TODO: in the coords popup, use T256C to actually print the 2 selected colors AND their number
 ; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: crosshair mouse cursor instead of pointer
 ; TODO: undo+redo
@@ -312,16 +314,19 @@ menu {
                 return 0
             } else {
                 ; second entry, handle override
+                sys.save_prog8_internals()          ; because this routine is kinda called as an interrupt
+                ubyte response=0
                 if cx16.r0L==20 {
                     ; DEL/BACKSPACE
                     if entered_length>0 {
                         entered_length--
                         txt.chrout(157)
                         txt.chrout(' ')
-                        return 157
+                        response=157
                     }
                 }
-                return 0    ; eat all other characters
+                sys.restore_prog8_internals()
+                return response
             }
         }
     }
@@ -488,7 +493,7 @@ commands {
         } else
             error_message = bmx.error_message
 
-        menu.message("Error", error_message)
+        menu.message("Error\x07", error_message)
         sys.wait(120)
         menu.draw()
     }
@@ -517,13 +522,11 @@ commands {
         bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width)
         palette.set_default16()
 
-        if success {
-            menu.draw()
-        }
-        else {
-            menu.message("Error", bmx.error_message)
+        if not success {
+            menu.message("Error\x07", bmx.error_message)
             sys.wait(120)
         }
+        menu.draw()
     }
 
     sub quit() {
