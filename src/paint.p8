@@ -3,7 +3,6 @@
 
 ; This is the main program and menu logic.
 
-; TODO: slight underline under the hotkeys in the menu?
 ; TODO: in the coords popup, use T256C to actually print the 2 selected colors AND their number
 ; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: crosshair mouse cursor instead of pointer
@@ -192,12 +191,24 @@ menu {
 
     sub draw_tools() {
         outline(3, 2, 20, 12, "Tools")
-        txt.color(3)
         for cx16.r0L in 0 to len(tools_names)-1 {
+            cx16.r2 = tools_names[cx16.r0L]
+            txt.color(3)
             txt.plot(tools_x[cx16.r0L], tools_y[cx16.r0L])
-            txt.print(tools_names[cx16.r0L])
+            txt.print(cx16.r2)
+            txt.color(12)
+            txt.plot(tools_x[cx16.r0L] + hotkeyOffset(), tools_y[cx16.r0L]+1)
+            txt.chrout('▔')
         }
         tools.draw_active_checkmark()
+
+        sub hotkeyOffset() -> ubyte {
+            for cx16.r5L in 0 to 100 {
+                if @(cx16.r2+cx16.r5L)>96
+                    return cx16.r5L
+            }
+            return 0
+        }
     }
 
     sub draw_commands() {
