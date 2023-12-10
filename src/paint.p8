@@ -7,7 +7,6 @@
 ; TODO: crosshair mouse cursor instead of pointer
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
-; TODO: Command to set disk drive number 8-11
 ; TODO: file picker for load, file list before save?
 ; TODO: add Help command (use 80x30 screen mode for the help text?)
 ; TODO: increase/decrease brush size for erasing and drawing
@@ -43,7 +42,7 @@ main {
         txt.lowercase()
         txt.clear_screen()
         txt.print("\n\n    \x9aCommander X16 PAINT\n\n"+
-            "    \x97DesertFish ▒ Prog8 ▒ version 0.6\x9f" +
+            "    \x97DesertFish ▒ Prog8 ▒ version 0.7\x9f" +
             "\n\n\n\n    Instructions:\n\n\n"+
             "   - Use the mouse to paint stuff.\n"+
             "     Left/right button = color 1/2.\n"+
@@ -167,10 +166,10 @@ main {
 menu {
     bool active = false
 
-    str[] commands_names = ["Undo", "Clear", "Save", "Load", "Quit"]
-    uword[len(commands_names)] commands_handlers = [&commands.undo, &commands.clear, &commands.save, &commands.load, &commands.quit]
-    ubyte[len(commands_names)] commands_x = [27, 27, 27, 27, 27]
-    ubyte[len(commands_names)] commands_y = [4, 6, 8, 10, 12]
+    str[] commands_names = ["Undo", "Clear", "Load", "Save", "Drive: ", "Quit"]
+    uword[len(commands_names)] commands_handlers = [&commands.undo, &commands.clear, &commands.load, &commands.save, &commands.drive, &commands.quit]
+    ubyte[len(commands_names)] commands_x = [27, 27, 27, 27, 27, 27]
+    ubyte[len(commands_names)] commands_y = [4, 6, 8, 10, 12, 14]
 
     str[] tools_names = ["draW", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Zoom", "Palette"]
     uword[len(tools_names)] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.zoom, &tools.palette]
@@ -211,22 +210,23 @@ menu {
     }
 
     sub draw_commands() {
-        outline(25, 2, 12, 12, "Commands")
+        outline(25, 2, 12, 14, "Commands")
         txt.color(3)
         for cx16.r0L in 0 to len(commands_names)-1 {
             txt.plot(commands_x[cx16.r0L], commands_y[cx16.r0L])
             txt.print(commands_names[cx16.r0L])
         }
+        commands.draw_drive()
     }
 
     sub draw_info() {
         const ubyte BOX_Y=23
-        outline(3, BOX_Y, 26, 4, "Info")
+        outline(3, BOX_Y, 31, 4, "Info")
         txt.color(12)
         txt.plot(4, BOX_Y+1)
-        txt.print("tool hotKeys are active.")
+        txt.print("Tool hotkeys are underlined.")
         txt.plot(4, BOX_Y+2)
-        txt.print("hold CTRL to show coords.")
+        txt.print("Hold CTRL to show coordinates.")
         txt.plot(4, BOX_Y+3)
         txt.print("TAB to toggle menu.")
     }
@@ -391,7 +391,7 @@ menu {
                 cx16.r2 = commands_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(commands_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    void callfar(cx16.getrambank(), commands_handlers[cx16.r0L], 0)
+                    call(commands_handlers[cx16.r0L])
                     wait_release_mousebuttons()
                     return
                 }
@@ -403,7 +403,7 @@ menu {
                 cx16.r2 = tools_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(tools_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    void callfar(cx16.getrambank(), tools_handlers[cx16.r0L], 0)
+                    call(tools_handlers[cx16.r0L])
                     wait_release_mousebuttons()
                     return
                 }
@@ -537,6 +537,20 @@ commands {
             sys.wait(120)
         }
         menu.draw()
+    }
+
+    sub drive() {
+        diskio.drivenumber++
+        if diskio.drivenumber==12
+            diskio.drivenumber=8
+        draw_drive()
+    }
+
+    sub draw_drive() {
+        txt.plot(34, 12)
+        txt.color(8)
+        txt.print_ub(diskio.drivenumber)
+        txt.spc()
     }
 
     sub quit() {
