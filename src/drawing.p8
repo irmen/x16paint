@@ -47,7 +47,8 @@ drawing {
         ubyte circle_radius
         mouse_x = mx
         mouse_y = my
-        draw_coordinates()
+        if coordinates_shown
+            draw_coordinates()
 
         if dragging_with_button {
             eor_color += 17
@@ -228,21 +229,37 @@ drawing {
 
     sub draw_coordinates() {
         str[] tools = [0, "draw", "line", "rectangle", "box", "circle", "disc", "erase", "fill"]
-
+        const ubyte COORDS_BG = 15
+        const ubyte COLORS_X = 14
         if coordinates_shown {
+            cx16.VERA_L1_CONFIG |= %00001000     ; enable T256C mode for the text layer so we can show all 256 colors
             txt.plot(3,27)
-            txt.color2(6,15)
-            txt.print("pos: ")
+            txt.color(14)
+            txt.chrout(18)      ; Reverse on
+            txt.print("@ ")
             txt.print_uw(mouse_x)
             txt.chrout(',')
             txt.print_uw(mouse_y)
-            txt.print(" [")
+            repeat COLORS_X-txt.get_column()
+                txt.chrout(' ')
             txt.print_ub0(selected_color1)
-            txt.chrout(';')
+            txt.print("\x1d\x1d ")
             txt.print_ub0(selected_color2)
-            txt.print("] ")
+            txt.print("\x1d\x1d ")
             txt.print(tools[active_tool])
-            txt.print("  ")
+            repeat 36-txt.get_column()
+                txt.chrout(' ')
+            txt.chrout(146)      ; Reverse off
+
+            txt.setcc2(COLORS_X+3, 27, 160, selected_color1)
+            txt.setcc2(COLORS_X+4, 27, 160, selected_color1)
+            txt.setcc2(COLORS_X+9, 27, 160, selected_color2)
+            txt.setcc2(COLORS_X+10, 27, 160, selected_color2)
+        } else {
+            cx16.VERA_L1_CONFIG &= %11110111     ; disable T256C mode again
+            txt.plot(3,27)
+            repeat 33
+                txt.chrout(' ')
         }
     }
 
@@ -256,6 +273,7 @@ drawing {
         } else {
             if coordinates_shown {
                 coordinates_shown = false
+                draw_coordinates()
                 main.disable_text_layer()
             }
         }

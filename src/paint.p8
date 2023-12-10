@@ -3,7 +3,6 @@
 
 ; This is the main program and menu logic.
 
-; TODO: in the coords popup, use T256C to actually print the 2 selected colors AND their number
 ; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: crosshair mouse cursor instead of pointer
 ; TODO: undo+redo
