@@ -5,6 +5,7 @@
 
 ; TODO: load (and even save?) just the palette (to/from a BMX file)
 ; TODO: crosshair mouse cursor instead of pointer
+; ----- scope boundary for version 1.0 -----
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: file picker for load, file list before save?
@@ -12,9 +13,11 @@
 ; TODO: increase/decrease brush size for erasing and drawing
 ; TODO: implement zoom, could be a sprite that magnifies whats under cursor and follows? Or use vera scaling? (but needs scrolling the bitmap layer, is this possible at all?)
 ; TODO: palette editing, or rely on an external tool/plugin for this?
+; TODO: ellipse (squashed circles)
 ; TODO: tool-specific mouse pointer?
 ; TODO: grid toggle?
 ; TODO: text tool?
+; TODO: save and load other color depths?  (but paint program itself remains in 256c)
 
 
 %import syslib
@@ -391,7 +394,7 @@ menu {
                 cx16.r2 = commands_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(commands_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    call(commands_handlers[cx16.r0L])
+                    void call(commands_handlers[cx16.r0L])
                     wait_release_mousebuttons()
                     return
                 }
@@ -403,7 +406,7 @@ menu {
                 cx16.r2 = tools_y[cx16.r0L]*8
                 cx16.r3 = cx16.r1 + string.length(tools_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
-                    call(tools_handlers[cx16.r0L])
+                    void call(tools_handlers[cx16.r0L])
                     wait_release_mousebuttons()
                     return
                 }

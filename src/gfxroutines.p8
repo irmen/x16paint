@@ -54,19 +54,19 @@ gfx {
         if eor_mode {
             cx16.vaddr_clone(0)      ; also setup port 1, for reading
             %asm {{
-                ldx  p8_length+1
+                ldx  p8v_length+1
                 beq  +
                 ldy  #0
--               lda  p8_color
+-               lda  p8v_color
                 eor  cx16.VERA_DATA1
                 sta  cx16.VERA_DATA0
                 iny
                 bne  -
                 dex
                 bne  -
-+               ldy  p8_length     ; remaining
++               ldy  p8v_length     ; remaining
                 beq  +
--               lda  p8_color
+-               lda  p8v_color
                 eor  cx16.VERA_DATA1
                 sta  cx16.VERA_DATA0
                 dey
@@ -75,8 +75,8 @@ gfx {
             }}
         } else {
             %asm {{
-                lda  p8_color
-                ldx  p8_length+1
+                lda  p8v_color
+                ldx  p8v_length+1
                 beq  +
                 ldy  #0
 -               sta  cx16.VERA_DATA0
@@ -84,7 +84,7 @@ gfx {
                 bne  -
                 dex
                 bne  -
-+               ldy  p8_length     ; remaining
++               ldy  p8v_length     ; remaining
                 beq  +
 -               sta  cx16.VERA_DATA0
                 dey
@@ -119,9 +119,9 @@ gfx {
         if eor_mode {
             cx16.vaddr_clone(0)      ; also setup port 1, for reading
             %asm {{
-                ldy  p8_lheight
+                ldy  p8v_lheight
                 beq  +
--               lda  p8_color
+-               lda  p8v_color
                 eor  cx16.VERA_DATA1
                 sta  cx16.VERA_DATA0
                 dey
@@ -130,9 +130,9 @@ gfx {
             }}
         } else {
             %asm {{
-                ldy  p8_lheight
+                ldy  p8v_lheight
                 beq  +
-                lda  p8_color
+                lda  p8v_color
 -               sta  cx16.VERA_DATA0
                 dey
                 bne  -
@@ -315,12 +315,12 @@ gfx {
             sta  cx16.VERA_ADDR_M
             lda  cx16.r0
             sta  cx16.VERA_ADDR_L
-            lda  p8_eor_mode
+            lda  p8v_eor_mode
             bne  +
-            lda  p8_color
+            lda  p8v_color
             sta  cx16.VERA_DATA0
             rts
-+           lda  p8_color
++           lda  p8v_color
             eor  cx16.VERA_DATA0
             sta  cx16.VERA_DATA0
             rts
@@ -380,21 +380,21 @@ gfx {
 ;;                cx16.r12L++
                 %asm {{
                     ldy  cx16.r12L
-                    lda  p8_sxl
-                    sta  p8_stack_xl_lsb,y
-                    lda  p8_sxl+1
-                    sta  p8_stack_xl_msb,y
-                    lda  p8_sxr
-                    sta  p8_stack_xr_lsb,y
-                    lda  p8_sxr+1
-                    sta  p8_stack_xr_msb,y
-                    lda  p8_sy
-                    sta  p8_stack_y_lsb,y
-                    lda  p8_sy+1
-                    sta  p8_stack_y_msb,y
+                    lda  p8v_sxl
+                    sta  p8v_stack_xl_lsb,y
+                    lda  p8v_sxl+1
+                    sta  p8v_stack_xl_msb,y
+                    lda  p8v_sxr
+                    sta  p8v_stack_xr_lsb,y
+                    lda  p8v_sxr+1
+                    sta  p8v_stack_xr_msb,y
+                    lda  p8v_sy
+                    sta  p8v_stack_y_lsb,y
+                    lda  p8v_sy+1
+                    sta  p8v_stack_y_msb,y
                     ldy  cx16.r12L
-                    lda  p8_sdy
-                    sta  p8_stack_dy,y
+                    lda  p8v_sdy
+                    sta  p8v_stack_dy,y
                     inc  cx16.r12L
                 }}
             }
@@ -408,21 +408,21 @@ gfx {
             %asm {{
                 dec  cx16.r12L
                 ldy  cx16.r12L
-                lda  p8_stack_xl_lsb,y
-                sta  p8_x1
-                lda  p8_stack_xl_msb,y
-                sta  p8_x1+1
-                lda  p8_stack_xr_lsb,y
-                sta  p8_x2
-                lda  p8_stack_xr_msb,y
-                sta  p8_x2+1
-                lda  p8_stack_y_lsb,y
-                sta  p8_yy
-                lda  p8_stack_y_msb,y
-                sta  p8_yy+1
+                lda  p8v_stack_xl_lsb,y
+                sta  p8v_x1
+                lda  p8v_stack_xl_msb,y
+                sta  p8v_x1+1
+                lda  p8v_stack_xr_lsb,y
+                sta  p8v_x2
+                lda  p8v_stack_xr_msb,y
+                sta  p8v_x2+1
+                lda  p8v_stack_y_lsb,y
+                sta  p8v_yy
+                lda  p8v_stack_y_msb,y
+                sta  p8v_yy+1
                 ldy  cx16.r12L
-                lda  p8_stack_dy,y
-                sta  p8_dy
+                lda  p8v_stack_dy,y
+                sta  p8v_dy
             }}
             yy+=dy
         }
