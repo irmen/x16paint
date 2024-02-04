@@ -27,6 +27,7 @@
 %import bmx
 %import palette
 %import drawing
+%import sprites
 %import colors
 %option no_sysinit
 
@@ -38,8 +39,9 @@ main {
 
         ; mouse
         cx16.mouse_config2(1)
+        sprites.set_mousepointer_hand()
         ; select a different palette offset for the mouse pointer to make it visible on black:
-        cx16.vpoke_mask(1, $fc00+7, %11110000, %1011)
+        ; cx16.vpoke_mask(1, $fc00+7, %11110000, %1011)
 
         ; instructions
         txt.lowercase()
@@ -55,8 +57,8 @@ main {
             "   - TAB toggles the menus on/off.\n\n"+
             "   - Type lowercase filenames.\n\n\n\n"+
             "    \x99Click any mouse button to start.")
-        while not cx16.mouse_pos() { }
-        while cx16.mouse_pos() { }
+        while cx16.mouse_pos()==0 { }
+        while cx16.mouse_pos()!=0 { }
         menu.show()
 
         repeat {
@@ -268,7 +270,7 @@ menu {
 
     sub confirm(str text) -> bool {
         message("Confirm", text)
-        while cbm.GETIN() { }
+        while cbm.GETIN()!=0 { }
         repeat {
             when cbm.GETIN() {
                 0 -> { }
@@ -294,9 +296,9 @@ menu {
         void txt.input_chars(filename_buffer)
         ; trim right crap and spaces
         filename_buffer[entered_length]=0
-        while entered_length and filename_buffer[entered_length]!=' '
+        while entered_length!=0 and filename_buffer[entered_length]!=' '
             entered_length--
-        while entered_length {
+        while entered_length!=0 {
             if filename_buffer[entered_length]!=' '
                 break
             filename_buffer[entered_length] = 0
@@ -415,7 +417,7 @@ menu {
     }
 
     sub wait_release_mousebuttons() {
-        while cx16.mouse_pos() { }
+        while cx16.mouse_pos()!=0 { }
     }
 
     sub notification(str text) {

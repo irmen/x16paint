@@ -168,17 +168,17 @@ gfx {
         }
 
         word @zp d = 0
-        cx16.r1L = true      ; 'positive_ix'
+        cx16.r1L = 1 ;; true      ; 'positive_ix'
         if dx < 0 {
             dx = -dx
-            cx16.r1L = false
+            cx16.r1L = 0 ;; false
         }
         word @zp dx2 = dx*2
         word @zp dy2 = dy*2
         cx16.r14 = x1       ; internal plot X
 
         if dx >= dy {
-            if cx16.r1L {
+            if cx16.r1L!=0 {
                 repeat {
                     plot(cx16.r14, lsb(y1), color)
                     if cx16.r14==x2
@@ -205,7 +205,7 @@ gfx {
             }
         }
         else {
-            if cx16.r1L {
+            if cx16.r1L!=0 {
                 repeat {
                     plot(cx16.r14, lsb(y1), color)
                     if y1 == y2
@@ -434,7 +434,7 @@ gfx {
         push_stack(xx, xx, yy, 1)
         push_stack(xx, xx, yy + 1, -1)
         word left = 0
-        while cx16.r12L {
+        while cx16.r12L!=0 {
             pop_stack()
             xx = x1
             ; TODO: if mode==1 (256c) use vera autodecrement instead of pget(), but code bloat not worth it?
@@ -454,15 +454,15 @@ gfx {
             xx = x1 + 1
 
             do {
-                cx16.r9 = xx
+                cx16.r9s = xx
                 ; TODO: if mode==1 (256c) use vera autoincrement instead of pget(), but code bloat not worth it?
                 while xx <= width-1 {
                     if pget(xx as uword, lsb(yy)) != cx16.r11L
                         break
                     xx++
                 }
-                if cx16.r9!=xx
-                    horizontal_line(cx16.r9, yy as ubyte, (xx as uword)-cx16.r9, cx16.r10L)
+                if cx16.r9s!=xx
+                    horizontal_line(cx16.r9, yy as ubyte, xx-cx16.r9s as uword, cx16.r10L)
 
                 push_stack(left, xx - 1, yy, dy)
                 if xx > x2 + 1

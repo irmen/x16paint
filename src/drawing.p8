@@ -50,9 +50,9 @@ drawing {
         if coordinates_shown
             draw_coordinates()
 
-        if dragging_with_button {
+        if dragging_with_button!=0 {
             eor_color += 17
-            if buttons {
+            if buttons!=0 {
                 ; user is dragging the mouse with button(s) pressed
                 ; this usually means whatever is drawn is still temporary
                 when active_tool {
@@ -136,7 +136,7 @@ drawing {
                 dragging_with_button = 0
             }
         } else {
-            if buttons {
+            if buttons!=0 {
                 ; user starts pressing a button, drawing starts
                 dragging_with_button = buttons
                 mouse_drag_start_x = mx
