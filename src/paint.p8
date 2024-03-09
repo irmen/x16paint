@@ -3,10 +3,8 @@
 
 ; This is the main program and menu logic.
 
-; TODO: load (and even save?) just the palette (to/from a BMX file)
-; TODO: crosshair mouse cursor instead of pointer
-; ----- scope boundary for version 1.0 -----
 ; TODO: undo+redo
+; TODO: crosshair mouse cursor instead of pointer
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: file picker for load, file list before save?
 ; TODO: add Help command (use 80x30 screen mode for the help text?)
@@ -47,7 +45,7 @@ main {
         txt.lowercase()
         txt.clear_screen()
         txt.print("\n\n    \x9aCommander X16 PAINT\n\n"+
-            "    \x97DesertFish ▒ Prog8 ▒ version 0.7\x9f" +
+            "    \x97DesertFish ▒ Prog8 ▒ version 1.0\x9f" +
             "\n\n\n\n    Instructions:\n\n\n"+
             "   - Use the mouse to paint stuff.\n"+
             "     Left/right button = color 1/2.\n"+
@@ -171,10 +169,10 @@ main {
 menu {
     bool active = false
 
-    str[] commands_names = ["Undo", "Clear", "Load", "Save", "Drive: ", "Quit"]
-    uword[len(commands_names)] commands_handlers = [&commands.undo, &commands.clear, &commands.load, &commands.save, &commands.drive, &commands.quit]
-    ubyte[len(commands_names)] commands_x = [27, 27, 27, 27, 27, 27]
-    ubyte[len(commands_names)] commands_y = [4, 6, 8, 10, 12, 14]
+    str[] commands_names = ["Undo", "Clear", "Load image", "Save image", "Load pal.", "Save pal.", "Drive: ", "Quit"]
+    uword[len(commands_names)] commands_handlers = [&commands.undo, &commands.clear, &commands.load, &commands.save, &commands.load_palette, &commands.save_palette, &commands.drive, &commands.quit]
+    ubyte[len(commands_names)] commands_x = [27, 27, 27, 27, 27, 27, 27, 27]
+    ubyte[len(commands_names)] commands_y = [4, 6, 8, 10, 12, 14, 16, 18]
 
     str[] tools_names = ["draW", "Rectangle", "Circle", "Erase", "Line", "Box", "Disc", "Fill", "Zoom", "Palette"]
     uword[len(tools_names)] tools_handlers = [&tools.draw, &tools.rect, &tools.circle, &tools.erase, &tools.line, &tools.box, &tools.disc, &tools.fill, &tools.zoom, &tools.palette]
@@ -215,7 +213,7 @@ menu {
     }
 
     sub draw_commands() {
-        outline(25, 2, 12, 14, "Commands")
+        outline(25, 2, 12, 18, "Commands")
         txt.color(3)
         for cx16.r0L in 0 to len(commands_names)-1 {
             txt.plot(commands_x[cx16.r0L], commands_y[cx16.r0L])
@@ -458,7 +456,7 @@ commands {
     }
 
     sub load() {
-        uword filename = menu.input(26, "Load", "Enter filename, empty=abort")
+        uword filename = menu.input(26, "Load image", "Enter filename, empty=abort")
         ubyte filename_len = string.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
@@ -504,17 +502,18 @@ commands {
                 } else
                     error_message = "image too large"
             } else
-                error_message="Can only work with 256 color images"
+                error_message="Paint needs a 256 color image"
         } else
             error_message = bmx.error_message
 
-        menu.message("Error\x07", error_message)
+        menu.message("Error", error_message)
+        txt.bell()
         sys.wait(120)
         menu.draw()
     }
 
     sub save() {
-        uword filename = menu.input(26, "Save", "Enter filename, empty=abort")
+        uword filename = menu.input(26, "Save image", "Enter filename, empty=abort")
         ubyte filename_len = string.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
@@ -538,7 +537,65 @@ commands {
         palette.set_default16()
 
         if not success {
-            menu.message("Error\x07", bmx.error_message)
+            menu.message("Error", bmx.error_message)
+            txt.bell()
+            sys.wait(120)
+        }
+        menu.draw()
+    }
+
+    sub load_palette() {
+        uword filename = menu.input(26, "Load image", "Enter filename, empty=abort")
+        ubyte filename_len = string.length(filename)
+        if filename==0 or filename_len==0 {
+            menu.draw()
+            return
+        }
+
+        if not string.endswith(filename, ".bmx")
+            void string.append(filename, ".bmx")
+
+        menu.message("Info", "Loading...")
+
+        if bmx.open(diskio.drivenumber, filename) {
+            if bmx.continue_load_only_palette() {
+                menu.show()
+                return
+            }
+        }
+
+        menu.message("Error", bmx.error_message)
+        txt.bell()
+        sys.wait(120)
+        menu.draw()
+    }
+
+    sub save_palette() {
+        uword filename = menu.input(26, "Save palette", "Enter filename, empty=abort")
+        ubyte filename_len = string.length(filename)
+        if filename==0 or filename_len==0 {
+            menu.draw()
+            return
+        }
+
+        if not string.endswith(filename, ".bmx")
+            void string.append(filename, ".bmx")
+
+        menu.message("Info", "Saving...")
+        menu.restore_palette()   ; note: could also reconstruct the original palette in a buffer and let bmx.save() use that...
+        bmx.set_bpp(0)
+        bmx.width = 320
+        bmx.height = 0
+        bmx.border = 0
+        bmx.compression = 0
+        bmx.palette_entries = 256
+        bmx.palette_start = 0
+        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width)
+        palette.set_default16()
+
+        if not success {
+            menu.message("Error", bmx.error_message)
+            txt.bell()
             sys.wait(120)
         }
         menu.draw()
@@ -552,7 +609,7 @@ commands {
     }
 
     sub draw_drive() {
-        txt.plot(34, 12)
+        txt.plot(34, 16)
         txt.color(8)
         txt.print_ub(diskio.drivenumber)
         txt.spc()
