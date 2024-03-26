@@ -3,6 +3,9 @@
 
 ; This is the main program and menu logic.
 
+; TODO: fix save problem! saving image then loading gives error: needs 256 color image...
+
+
 ; TODO: undo+redo
 ; TODO: crosshair mouse cursor instead of pointer
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
@@ -45,7 +48,7 @@ main {
         txt.lowercase()
         txt.clear_screen()
         txt.print("\n\n    \x9aCommander X16 PAINT\n\n"+
-            "    \x97DesertFish ▒ Prog8 ▒ version 1.0\x9f" +
+            "    \x97DesertFish ▒ Prog8 ▒ version 1.1\x9f" +
             "\n\n\n\n    Instructions:\n\n\n"+
             "   - Use the mouse to paint stuff.\n"+
             "     Left/right button = color 1/2.\n"+
