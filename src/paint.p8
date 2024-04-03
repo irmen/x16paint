@@ -34,6 +34,7 @@
 
 main {
     sub start() {
+        ;; diskio.fastmode(3)      ; fast loads+saves
         gfx.init()
         drawing.init()
         drawing.reset_undo()
@@ -58,8 +59,10 @@ main {
             "   - TAB toggles the menus on/off.\n\n"+
             "   - Type lowercase filenames.\n\n\n\n"+
             "    \x99Click any mouse button to start.")
-        while cx16.mouse_pos()==0 { }
-        while cx16.mouse_pos()!=0 { }
+        do {
+            cx16.r0L, void, void = cx16.mouse_pos()
+        } until cx16.r0L!=0
+        menu.wait_release_mousebuttons()
         menu.show()
 
         repeat {
@@ -69,7 +72,7 @@ main {
     }
 
     sub handle_mouse() {
-        cx16.r3L = cx16.mouse_pos()
+        cx16.r3L, cx16.r0s, cx16.r1s = cx16.mouse_pos()
         if menu.active {
             drawing.stop()
             menu.mouse(cx16.r3L, cx16.r0, cx16.r1)
@@ -86,9 +89,10 @@ main {
 
     sub handle_keypress() {
         ; check if left CTRL is held down to show the position
-        drawing.show_coordinates(cx16.joystick_get2(0)&$8000 == 0)
+        cx16.r0, void = cx16.joystick_get(0)
+        drawing.show_coordinates(cx16.r0&$8000 == 0)
 
-        when cbm.GETIN() {
+        when cbm.GETIN2() {
             0 -> { /* do nothing */ }
             9 -> {
                 ; TAB = show/hide menus overlay
@@ -271,9 +275,9 @@ menu {
 
     sub confirm(str text) -> bool {
         message("Confirm", text)
-        while cbm.GETIN()!=0 { }
+        while cbm.GETIN2()!=0 { }
         repeat {
-            when cbm.GETIN() {
+            when cbm.GETIN2() {
                 0 -> { }
                 'y' -> return true
                 else -> return false
@@ -418,7 +422,9 @@ menu {
     }
 
     sub wait_release_mousebuttons() {
-        while cx16.mouse_pos()!=0 { }
+        do {
+            cx16.r0L, void, void = cx16.mouse_pos()
+        } until cx16.r0L==0
     }
 
     sub notification(str text) {
