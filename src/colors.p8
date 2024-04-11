@@ -9,6 +9,7 @@ colors {
         active = true
         draw()
         main.enable_text_layer()
+        main.set_mousepointer_hand()
         cx16.VERA_L1_CONFIG |= %00001000     ; enable T256C mode for the text layer so we can show all 256 colors
     }
 
@@ -18,6 +19,7 @@ colors {
         cx16.VERA_L1_CONFIG &= %11110111     ; disable T256C mode again
         txt.color2(1,0)
         txt.clear_screen()
+        main.set_mousepointer_crosshair()
     }
 
     sub mouse(ubyte buttons, uword mx, uword my) {

@@ -3,11 +3,7 @@
 
 ; This is the main program and menu logic.
 
-; TODO: fix save problem! saving image then loading gives error: needs 256 color image...
-
-
 ; TODO: undo+redo
-; TODO: crosshair mouse cursor instead of pointer
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: file picker for load, file list before save?
 ; TODO: add Help command (use 80x30 screen mode for the help text?)
@@ -41,7 +37,7 @@ main {
 
         ; mouse
         cx16.mouse_config2(1)
-        sprites.set_mousepointer_hand()
+        set_mousepointer_hand()
         ; select a different palette offset for the mouse pointer to make it visible on black:
         ; cx16.vpoke_mask(1, $fc00+7, %11110000, %1011)
 
@@ -170,6 +166,43 @@ main {
     sub disable_text_layer() {
         cx16.VERA_CTRL = 0
         cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11001111) | %00010000
+    }
+
+    sub set_mousepointer_crosshair() {
+        ; the array below is the compressed form of this sprite image:
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 03, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 06, 05, 03, 05, 06, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 05, 01, 00, 01, 05, 00, 00, 00, 00, 00,
+        ;    14, 14, 14, 14, 03, 14, 03, 00, 00, 00, 03, 14, 03, 14, 14, 14,
+        ;    00, 00, 00, 00, 00, 00, 05, 01, 00, 01, 05, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 06, 05, 03, 05, 06, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 03, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00,
+        ;    00, 00, 00, 00, 00, 00, 00, 00, 14, 00, 00, 00, 00, 00, 00, 00        
+        ubyte[] crosshair_image_lzsa = [
+            $0d, $00, $fb, $0d, $0e, $27, $8f, $20, $2f, $03, $0f, $05, $ff, $22, $06, $05,
+            $03, $05, $06, $5c, $2f, $05, $01, $00, $01, $05, $88, $01, $52, $03, $0e, $c2,
+            $21, $da, $21, $27, $02, $47, $c0, $ee, $47, $80, $47, $40, $ff, $1f, $e7, $e8 ]
+        sprites.set_mousepointer_image(crosshair_image_lzsa, true)
+        cx16.r0s = -8
+        cx16.r1s = -8
+        sys.clear_carry()
+        cx16.extapi(cx16.EXTAPI_mouse_sprite_offset)
+    }
+
+    sub set_mousepointer_hand() {
+        sprites.set_mousepointer_hand()
+        cx16.r0s = -1
+        cx16.r1s = -1
+        sys.clear_carry()
+        cx16.extapi(cx16.EXTAPI_mouse_sprite_offset)
     }
 }
 
@@ -374,6 +407,7 @@ menu {
         backup_palette()
         palette.set_default16()
         main.enable_text_layer()
+        main.set_mousepointer_hand()
     }
 
     sub hide() {
@@ -382,6 +416,7 @@ menu {
         restore_palette()
         txt.color2(1,0)
         txt.clear_screen()
+        main.set_mousepointer_crosshair()
     }
 
     sub mouse(ubyte buttons, uword mx, uword my) {
@@ -554,7 +589,7 @@ commands {
     }
 
     sub load_palette() {
-        uword filename = menu.input(26, "Load image", "Enter filename, empty=abort")
+        uword filename = menu.input(26, "Load palette", "Enter filename, empty=abort")
         ubyte filename_len = string.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
