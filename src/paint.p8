@@ -56,7 +56,7 @@ main {
             "   - Type lowercase filenames.\n\n\n\n"+
             "    \x99Click any mouse button to start.")
         do {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
         } until cx16.r0L!=0
         menu.wait_release_mousebuttons()
         menu.show()
@@ -68,7 +68,7 @@ main {
     }
 
     sub handle_mouse() {
-        cx16.r3L, cx16.r0s, cx16.r1s = cx16.mouse_pos()
+        cx16.r3L, cx16.r0, cx16.r1, void = cx16.mouse_pos()
         if menu.active {
             drawing.stop()
             menu.mouse(cx16.r3L, cx16.r0, cx16.r1)
@@ -458,7 +458,7 @@ menu {
 
     sub wait_release_mousebuttons() {
         do {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
         } until cx16.r0L==0
     }
 
