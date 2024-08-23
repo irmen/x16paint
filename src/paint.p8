@@ -45,7 +45,7 @@ main {
         txt.lowercase()
         txt.clear_screen()
         txt.print("\n\n    \x9aCommander X16 PAINT\n\n"+
-            "    \x97DesertFish ▒ Prog8 ▒ version 1.1\x9f" +
+            "    \x97DesertFish ▒ Prog8 ▒ version 1.2\x9f" +
             "\n\n\n\n    Instructions:\n\n\n"+
             "   - Use the mouse to paint stuff.\n"+
             "     Left/right button = color 1/2.\n"+

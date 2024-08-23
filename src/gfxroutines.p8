@@ -437,33 +437,14 @@ gfx {
         while cx16.r12L!=0 {
             pop_stack()
             xx = x1
-            ; TODO: if mode==1 (256c) use vera autodecrement instead of pget(), but code bloat not worth it?
-            while xx >= 0 {
-                if pget(xx as uword, lsb(yy)) != cx16.r11L
-                    break
-                xx--
-            }
-            if x1!=xx
-                horizontal_line(xx as uword+1, lsb(yy), x1-xx as uword, cx16.r10L)
-            else
-                goto skip
-
+            if fill_scanline_left_8bpp() goto skip
             left = xx + 1
             if left < x1
                 push_stack(left, x1 - 1, yy, -dy)
             xx = x1 + 1
 
             do {
-                cx16.r9s = xx
-                ; TODO: if mode==1 (256c) use vera autoincrement instead of pget(), but code bloat not worth it?
-                while xx <= width-1 {
-                    if pget(xx as uword, lsb(yy)) != cx16.r11L
-                        break
-                    xx++
-                }
-                if cx16.r9s!=xx
-                    horizontal_line(cx16.r9, yy as ubyte, xx-cx16.r9s as uword, cx16.r10L)
-
+                fill_scanline_right_8bpp()
                 push_stack(left, xx - 1, yy, dy)
                 if xx > x2 + 1
                     push_stack(x2 + 1, xx - 1, yy, -dy)
@@ -476,6 +457,44 @@ skip:
                 }
                 left = xx
             } until xx>x2
+        }
+
+        sub fill_scanline_left_8bpp() -> bool {
+            void addr_mul_24_for_lores_256c(lsb(yy), xx as uword)      ; 24 bits result is in r0 and r1L (highest byte)
+            cx16.VERA_CTRL = 0
+            cx16.VERA_ADDR_H = cx16.r1L | %00011000     ; auto decrement enabled
+            cx16.VERA_ADDR_M = cx16.r0H
+            cx16.VERA_ADDR_L = cx16.r0L
+            cx16.VERA_CTRL = 1
+            cx16.VERA_ADDR_H = cx16.r1L | %00011000     ; auto decrement enabled
+            cx16.VERA_ADDR_M = cx16.r0H
+            cx16.VERA_ADDR_L = cx16.r0L
+            cx16.r9s = xx
+            while xx >= 0 {
+                if cx16.VERA_DATA0 != cx16.r11L
+                    break
+                cx16.VERA_DATA1 = cx16.r10L
+                xx--
+            }
+            return xx==cx16.r9s
+        }
+
+        sub fill_scanline_right_8bpp() {
+            void addr_mul_24_for_lores_256c(lsb(yy), xx as uword)      ; 24 bits result is in r0 and r1L (highest byte)
+            cx16.VERA_CTRL = 0
+            cx16.VERA_ADDR_H = cx16.r1L | %00010000     ; auto increment enabled
+            cx16.VERA_ADDR_M = cx16.r0H
+            cx16.VERA_ADDR_L = cx16.r0L
+            cx16.VERA_CTRL = 1
+            cx16.VERA_ADDR_H = cx16.r1L | %00010000     ; auto increment enabled
+            cx16.VERA_ADDR_M = cx16.r0H
+            cx16.VERA_ADDR_L = cx16.r0L
+            while xx <= width-1 {
+                if cx16.VERA_DATA0 != cx16.r11L
+                    break
+                cx16.VERA_DATA1 = cx16.r10L
+                xx++
+            }
         }
     }
 
