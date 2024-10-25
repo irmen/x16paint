@@ -3,7 +3,6 @@
 
 ; This is the main program and menu logic.
 
-; TODO: save and load other color depths?  (but paint program itself remains in 256c) (see load_4bpp_centered etc)
 ; TODO: undo+redo
 ; TODO: 1-8 and shifted 1-8 = select color 0-15 ? but what about all the other colors?
 ; TODO: file picker for load, file list before save?
@@ -537,9 +536,9 @@ commands {
                     }
                     else {
                         when bmx.bitsperpixel {
-                            1 -> load_1bpp()
-                            2 -> load_2bpp()
-                            4 -> load_4bpp()
+                            1 -> load_1bpp_centered(0)
+                            2 -> load_2bpp_centered(0)
+                            4 -> load_4bpp_centered(0)
                             else -> load_8bpp()
                         }
                         if error_message==0 {
@@ -580,7 +579,6 @@ commands {
         }
 
         sub load_4bpp_centered(uword offset) {
-            ; TODO risk of clobbering VERA text matrix contents if the bmx image is too large
             const uword load_offset = (gfx.width * (gfx.height-8)) & 65535
             const ubyte load_offset_bank = (gfx.width * (gfx.height-8)) >> 16
             if not bmx.continue_load_stamp(load_offset_bank, load_offset, bmx.width) {
@@ -609,23 +607,6 @@ commands {
             cx16.GRAPH_draw_rect(border_width+bmx.width, gfx.height-8, border_width, 8, 0, true)
         }
 
-        sub load_4bpp() {
-            const uword load_offset = (gfx.width * (gfx.height/2+1)) & 65535
-            const ubyte load_offset_bank = (gfx.width * (gfx.height/2+1)) >> 16
-            if not bmx.continue_load(load_offset_bank, load_offset) {
-                error_message = bmx.error_message
-                return
-            }
-
-            cx16.vaddr(load_offset_bank, load_offset, 1, 1)
-            cx16.vaddr(0, 0, 0, 1)
-            repeat gfx.width/2*gfx.height {
-                cx16.r0L = cx16.VERA_DATA1
-                cx16.VERA_DATA0 = cx16.r0L >> 4
-                cx16.VERA_DATA0 = cx16.r0L & 15
-            }
-        }
-
         sub load_2bpp_centered(uword offset) {
             const uword load_offset = (gfx.width * gfx.height) & 65535
             const ubyte load_offset_bank = (gfx.width * gfx.height) >> 16
@@ -648,25 +629,6 @@ commands {
                 offset += gfx.width
                 if offset < gfx.width
                     offset_bank++
-            }
-        }
-
-        sub load_2bpp() {
-            const uword load_offset = (gfx.width * gfx.height) & 65535
-            const ubyte load_offset_bank = (gfx.width * gfx.height) >> 16
-            if not bmx.continue_load(load_offset_bank, load_offset) {
-                error_message = bmx.error_message
-                return
-            }
-
-            cx16.vaddr(load_offset_bank, load_offset, 1, 1)
-            cx16.vaddr(0, 0, 0, 1)
-            repeat gfx.width/4*gfx.height {
-                cx16.r0L = cx16.VERA_DATA1
-                cx16.VERA_DATA0 = cx16.r0L >> 6
-                cx16.VERA_DATA0 = (cx16.r0L >> 4) & 3
-                cx16.VERA_DATA0 = (cx16.r0L >> 2) & 3
-                cx16.VERA_DATA0 = cx16.r0L & 3
             }
         }
 
@@ -695,28 +657,6 @@ commands {
                 offset += gfx.width
                 if offset < gfx.width
                     offset_bank++
-            }
-        }
-
-        sub load_1bpp() {
-            const uword load_offset = (gfx.width * gfx.height) & 65535
-            const ubyte load_offset_bank = (gfx.width * gfx.height) >> 16
-            if not bmx.continue_load(load_offset_bank, load_offset) {
-                error_message = bmx.error_message
-                return
-            }
-
-            cx16.vaddr(load_offset_bank, load_offset, 1, 1)
-            cx16.vaddr(0, 0, 0, 1)
-            repeat gfx.width/8*gfx.height {
-                cx16.r0L = cx16.VERA_DATA1
-                repeat 8 {
-                    rol(cx16.r0L)
-                    if_cs
-                        cx16.VERA_DATA0 = 1
-                    else
-                        cx16.VERA_DATA0 = 0
-                }
             }
         }
     }
