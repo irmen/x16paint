@@ -1,6 +1,6 @@
 ; These are the actual drawing routines.
 
-%import gfxroutines
+%import gfx_lores
 
 drawing {
     const ubyte TOOL_DRAW = 1
@@ -43,7 +43,7 @@ drawing {
     }
 
     sub mouse(ubyte buttons, uword mx, uword my) {
-        gfx.eor_mode = false
+        gfx_lores.drawmode_eor(false)
         ubyte circle_radius
         mouse_x = mx
         mouse_y = my
@@ -59,51 +59,53 @@ drawing {
                     TOOL_DRAW, TOOL_ERASE -> {
                         ; immediately draw the line while dragging
                         ; TODO: allow user to pick a brush size
-                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, color_for_button(buttons))
+                        gfx_lores.line(mouse_drag_start_x, lsb(mouse_drag_start_y), mx, lsb(my), color_for_button(buttons))
                         mouse_drag_start_x=mx
                         mouse_drag_start_y=my
                     }
                     TOOL_LINE -> {
-                        gfx.eor_mode = true
-                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
+                        gfx_lores.drawmode_eor(true)
+                        gfx_lores.line(mouse_drag_start_x, lsb(mouse_drag_start_y), mx, lsb(my), eor_color)
                         sys.waitvsync()
                         sys.waitvsync()
-                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
-                        gfx.eor_mode = false
+                        gfx_lores.line(mouse_drag_start_x, lsb(mouse_drag_start_y), mx, lsb(my), eor_color)
+                        gfx_lores.drawmode_eor(false)
                     }
                     TOOL_RECT -> {
-                        gfx.eor_mode = true
+                        gfx_lores.drawmode_eor(true)
                         drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         sys.waitvsync()
                         sys.waitvsync()
                         drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
-                        gfx.eor_mode = false
+                        gfx_lores.drawmode_eor(false)
                     }
                     TOOL_BOX -> {
-                        gfx.eor_mode = true
+                        gfx_lores.drawmode_eor(true)
                         drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
                         sys.waitvsync()
                         sys.waitvsync()
                         drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, eor_color)
-                        gfx.eor_mode = false
+                        gfx_lores.drawmode_eor(false)
                     }
                     TOOL_CIRCLE -> {
-                        gfx.eor_mode = true
+                        gfx_lores.drawmode_eor(true)
                         circle_radius = radius(mouse_drag_start_x, mouse_drag_start_y, mx, my)
-                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        uword mdx = mouse_drag_start_x
+                        ubyte mdy = lsb(mouse_drag_start_y)
+                        gfx_lores.safe_circle(mdx, mdy, circle_radius, eor_color)
                         sys.waitvsync()
                         sys.waitvsync()
-                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
-                        gfx.eor_mode = false
+                        gfx_lores.safe_circle(mdx, mdy, circle_radius, eor_color)
+                        gfx_lores.drawmode_eor(false)
                     }
                     TOOL_DISC -> {
-                        gfx.eor_mode = true
+                        gfx_lores.drawmode_eor(true)
                         circle_radius = radius(mouse_drag_start_x, mouse_drag_start_y, mx, my)
-                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        gfx_lores.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
                         sys.waitvsync()
                         sys.waitvsync()
-                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
-                        gfx.eor_mode = false
+                        gfx_lores.safe_disc(mouse_drag_start_x, mouse_drag_start_y, circle_radius, eor_color)
+                        gfx_lores.drawmode_eor(false)
                     }
                     TOOL_FILL -> {
                         ; no action on drag! Fill starts when button released.
@@ -115,7 +117,7 @@ drawing {
                 ubyte color = color_for_button(dragging_with_button)
                 when active_tool {
                     TOOL_LINE -> {
-                        gfx.line(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
+                        gfx_lores.line(mouse_drag_start_x, lsb(mouse_drag_start_y), mx, lsb(my), color)
                     }
                     TOOL_RECT -> {
                         drawrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
@@ -124,13 +126,13 @@ drawing {
                         drawfillrect(mouse_drag_start_x, mouse_drag_start_y, mx, my, color)
                     }
                     TOOL_CIRCLE -> {
-                        gfx.safe_circle(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
+                        gfx_lores.safe_circle(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
                     }
                     TOOL_DISC -> {
-                        gfx.safe_disc(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
+                        gfx_lores.safe_disc(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
                     }
                     TOOL_FILL -> {
-                        gfx.fill(cx16.r0, cx16.r1L, color)
+                        gfx_lores.fill(cx16.r0, cx16.r1L, color)
                     }
                 }
                 dragging_with_button = 0
@@ -146,13 +148,13 @@ drawing {
     }
 
     sub drawrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
-        gfx.rect(min(x1, x2), lsb(min(y1, y2)),
+        gfx_lores.rect(min(x1, x2), lsb(min(y1, y2)),
                  1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as ubyte,
                  color)
     }
 
     sub drawfillrect(uword x1, uword y1, uword x2, uword y2, ubyte color) {
-        gfx.fillrect(min(x1, x2), lsb(min(y1, y2)),
+        gfx_lores.fillrect(min(x1, x2), lsb(min(y1, y2)),
                  1+abs(x2-x1 as word) as uword, 1+abs(y2-y1 as word) as ubyte,
                  color)
     }

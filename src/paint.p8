@@ -30,7 +30,7 @@
 main {
     sub start() {
         ;; diskio.fastmode(3)      ; fast loads+saves
-        gfx.init()
+        gfx_init()
         drawing.init()
         drawing.reset_undo()
 
@@ -44,7 +44,7 @@ main {
         txt.lowercase()
         txt.clear_screen()
         txt.print("\n\n    \x9aCommander X16 PAINT\n\n"+
-            "    \x97DesertFish ▒ Prog8 ▒ version 1.3\x9f" +
+            "    \x97DesertFish ▒ Prog8 ▒ version 1.4dev\x9f" +
             "\n\n\n\n    Instructions:\n\n\n"+
             "   - Use the mouse to paint stuff.\n"+
             "     Left/right button = color 1/2.\n"+
@@ -64,6 +64,12 @@ main {
             handle_mouse()
             handle_keypress()
         }
+    }
+
+    sub gfx_init() {
+        gfx_lores.eor_mode = false
+        void cx16.screen_mode(128, false)
+        gfx_lores.clear_screen(0)
     }
 
     sub handle_mouse() {
@@ -489,7 +495,7 @@ commands {
     sub clear() {
         if menu.confirm("Clear image. Sure Y/N?") {
             ; TODO set palette to default?
-            gfx.init()
+            main.gfx_init()
             drawing.reset_undo()
             drawing.active_tool = drawing.TOOL_DRAW
             menu.hide()
@@ -513,14 +519,14 @@ commands {
         uword error_message=0
         if bmx.open(diskio.drivenumber, filename) {
             if bmx.bitsperpixel in [1,2,4,8] {
-                if bmx.width<=gfx.width and bmx.height<=gfx.height {
-                    if bmx.width<gfx.width or bmx.height<gfx.height {
+                if bmx.width<=gfx_lores.WIDTH and bmx.height<=gfx_lores.HEIGHT {
+                    if bmx.width<gfx_lores.WIDTH or bmx.height<gfx_lores.HEIGHT {
                         ; clear the screen with the border color
                         cx16.GRAPH_set_colors(0, 0, bmx.border)
                         cx16.GRAPH_clear()
                         ; need to use the slower load routine that does padding
                         ; center the image on the screen nicely
-                        cx16.r0 = (gfx.width-bmx.width)/2 + (gfx.height-bmx.height)/2*gfx.width
+                        cx16.r0 = (gfx_lores.WIDTH-bmx.width)/2 + (gfx_lores.HEIGHT-bmx.height)/2*gfx_lores.WIDTH
                         when bmx.bitsperpixel {
                             1 -> load_1bpp_centered(cx16.r0)
                             2 -> load_2bpp_centered(cx16.r0)
@@ -542,10 +548,10 @@ commands {
                             else -> load_8bpp()
                         }
                         if error_message==0 {
-                            if bmx.height<gfx.height {
+                            if bmx.height<gfx_lores.HEIGHT {
                                 ; fill the remaining bottom part of the screen
                                 cx16.GRAPH_set_colors(bmx.border, bmx.border, 99)
-                                cx16.GRAPH_draw_rect(0, bmx.height, gfx.width, gfx.height-bmx.height, 0, true)
+                                cx16.GRAPH_draw_rect(0, bmx.height, gfx_lores.WIDTH, gfx_lores.HEIGHT-bmx.height, 0, true)
                             }
                             drawing.reset_undo()
                             menu.backup_palette()
@@ -567,7 +573,7 @@ commands {
         return
 
         sub load_8bpp_centered(uword offset) {
-            if bmx.continue_load_stamp(0, offset, gfx.width)
+            if bmx.continue_load_stamp(0, offset, gfx_lores.WIDTH)
                 return
             error_message = bmx.error_message
         }
@@ -579,8 +585,8 @@ commands {
         }
 
         sub load_4bpp_centered(uword offset) {
-            const uword load_offset = (gfx.width * (gfx.height-8)) & 65535
-            const ubyte load_offset_bank = (gfx.width * (gfx.height-8)) >> 16
+            const uword load_offset = (gfx_lores.WIDTH * (gfx_lores.HEIGHT-8)) & 65535
+            const ubyte load_offset_bank = (gfx_lores.WIDTH * (gfx_lores.HEIGHT-8)) >> 16
             if not bmx.continue_load_stamp(load_offset_bank, load_offset, bmx.width) {
                 error_message = bmx.error_message
                 return
@@ -595,21 +601,21 @@ commands {
                     cx16.VERA_DATA0 = cx16.r0L >> 4
                     cx16.VERA_DATA0 = cx16.r0L & 15
                 }
-                offset += gfx.width
-                if offset < gfx.width
+                offset += gfx_lores.WIDTH
+                if offset < gfx_lores.WIDTH
                     offset_bank++
             }
 
             ; fix up the bottom of the screen borders
             cx16.GRAPH_set_colors(bmx.border, bmx.border, 99)
-            uword border_width = (gfx.width-bmx.width)/2
-            cx16.GRAPH_draw_rect(0, gfx.height-8, border_width, 8, 0, true)
-            cx16.GRAPH_draw_rect(border_width+bmx.width, gfx.height-8, border_width, 8, 0, true)
+            uword border_width = (gfx_lores.WIDTH-bmx.width)/2
+            cx16.GRAPH_draw_rect(0, gfx_lores.HEIGHT-8, border_width, 8, 0, true)
+            cx16.GRAPH_draw_rect(border_width+bmx.width, gfx_lores.HEIGHT-8, border_width, 8, 0, true)
         }
 
         sub load_2bpp_centered(uword offset) {
-            const uword load_offset = (gfx.width * gfx.height) & 65535
-            const ubyte load_offset_bank = (gfx.width * gfx.height) >> 16
+            const uword load_offset = (gfx_lores.WIDTH * gfx_lores.HEIGHT) & 65535
+            const ubyte load_offset_bank = (gfx_lores.WIDTH * gfx_lores.HEIGHT) >> 16
             if not bmx.continue_load_stamp(load_offset_bank, load_offset, bmx.width) {
                 error_message = bmx.error_message
                 return
@@ -626,15 +632,15 @@ commands {
                     cx16.VERA_DATA0 = (cx16.r0L >> 2) & 3
                     cx16.VERA_DATA0 = cx16.r0L & 3
                 }
-                offset += gfx.width
-                if offset < gfx.width
+                offset += gfx_lores.WIDTH
+                if offset < gfx_lores.WIDTH
                     offset_bank++
             }
         }
 
         sub load_1bpp_centered(uword offset) {
-            const uword load_offset = (gfx.width * gfx.height) & 65535
-            const ubyte load_offset_bank = (gfx.width * gfx.height) >> 16
+            const uword load_offset = (gfx_lores.WIDTH * gfx_lores.HEIGHT) & 65535
+            const ubyte load_offset_bank = (gfx_lores.WIDTH * gfx_lores.HEIGHT) >> 16
             if not bmx.continue_load_stamp(load_offset_bank, load_offset, bmx.width) {
                 error_message = bmx.error_message
                 return
@@ -654,8 +660,8 @@ commands {
                             cx16.VERA_DATA0 = 0
                     }
                 }
-                offset += gfx.width
-                if offset < gfx.width
+                offset += gfx_lores.WIDTH
+                if offset < gfx_lores.WIDTH
                     offset_bank++
             }
         }
@@ -676,13 +682,13 @@ commands {
 
         menu.restore_palette()   ; note: could also reconstruct the original palette in a buffer and let bmx.save() use that...
         bmx.set_bpp(8)
-        bmx.width = gfx.width
-        bmx.height = gfx.height
+        bmx.width = gfx_lores.WIDTH
+        bmx.height = gfx_lores.HEIGHT
         bmx.border = 0
         bmx.compression = 0
         bmx.palette_entries = 256
         bmx.palette_start = 0
-        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width)
+        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx_lores.WIDTH)
         palette.set_default16()
 
         if not success {
@@ -739,7 +745,7 @@ commands {
         bmx.compression = 0
         bmx.palette_entries = 256
         bmx.palette_start = 0
-        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx.width)
+        bool success = bmx.save(diskio.drivenumber, filename, 0, 0, gfx_lores.WIDTH)
         palette.set_default16()
 
         if not success {
