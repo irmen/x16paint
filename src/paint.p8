@@ -19,7 +19,7 @@
 %import syslib
 %import textio
 %import diskio
-%import string
+%import strings
 %import bmx
 %import palette
 %import drawing
@@ -303,7 +303,7 @@ menu {
     sub message(str title, str text) {
         const ubyte BOX_Y = 10
         cbm.CLRCHN()
-        cx16.r0L = string.length(text)
+        cx16.r0L = strings.length(text)
         ubyte xpos = 20 - cx16.r0L/2 -2
         outline(xpos, BOX_Y, cx16.r0L+3, 6, title)
         txt.plot(xpos+2,BOX_Y+3)
@@ -403,7 +403,7 @@ menu {
     }
 
     sub restore_palette() {
-        palette.set_rgb(&palette_backup, len(palette_backup))
+        palette.set_rgb(&palette_backup, len(palette_backup), 0)
     }
 
     sub show() {
@@ -439,7 +439,7 @@ menu {
             for cx16.r0L in 0 to len(commands_names)-1 {
                 cx16.r1 = commands_x[cx16.r0L]*8
                 cx16.r2 = commands_y[cx16.r0L]*8
-                cx16.r3 = cx16.r1 + string.length(commands_names[cx16.r0L])*8
+                cx16.r3 = cx16.r1 + strings.length(commands_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
                     void call(commands_handlers[cx16.r0L])
                     wait_release_mousebuttons()
@@ -451,7 +451,7 @@ menu {
             for cx16.r0L in 0 to len(tools_names)-1 {
                 cx16.r1 = tools_x[cx16.r0L]*8
                 cx16.r2 = tools_y[cx16.r0L]*8
-                cx16.r3 = cx16.r1 + string.length(tools_names[cx16.r0L])*8
+                cx16.r3 = cx16.r1 + strings.length(tools_names[cx16.r0L])*8
                 if mx>=cx16.r1 and my>=cx16.r2 and mx<cx16.r3 and my<(cx16.r2+8) {
                     void call(tools_handlers[cx16.r0L])
                     wait_release_mousebuttons()
@@ -506,14 +506,14 @@ commands {
 
     sub load() {
         uword filename = menu.input(26, "Load image", "Enter filename, empty=abort")
-        ubyte filename_len = string.length(filename)
+        ubyte filename_len = strings.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
             return
         }
 
-        if not string.endswith(filename, ".bmx")
-            void string.append(filename, ".bmx")
+        if not strings.endswith(filename, ".bmx")
+            void strings.append(filename, ".bmx")
 
         menu.message("Info", "Loading...")
         uword error_message=0
@@ -669,14 +669,14 @@ commands {
 
     sub save() {
         uword filename = menu.input(26, "Save image", "Enter filename, empty=abort")
-        ubyte filename_len = string.length(filename)
+        ubyte filename_len = strings.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
             return
         }
 
-        if not string.endswith(filename, ".bmx")
-            void string.append(filename, ".bmx")
+        if not strings.endswith(filename, ".bmx")
+            void strings.append(filename, ".bmx")
 
         menu.message("Info", "Saving...")
 
@@ -701,14 +701,14 @@ commands {
 
     sub load_palette() {
         uword filename = menu.input(26, "Load palette", "Enter filename, empty=abort")
-        ubyte filename_len = string.length(filename)
+        ubyte filename_len = strings.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
             return
         }
 
-        if not string.endswith(filename, ".bmx")
-            void string.append(filename, ".bmx")
+        if not strings.endswith(filename, ".bmx")
+            void strings.append(filename, ".bmx")
 
         menu.message("Info", "Loading...")
 
@@ -727,14 +727,14 @@ commands {
 
     sub save_palette() {
         uword filename = menu.input(26, "Save palette", "Enter filename, empty=abort")
-        ubyte filename_len = string.length(filename)
+        ubyte filename_len = strings.length(filename)
         if filename==0 or filename_len==0 {
             menu.draw()
             return
         }
 
-        if not string.endswith(filename, ".bmx")
-            void string.append(filename, ".bmx")
+        if not strings.endswith(filename, ".bmx")
+            void strings.append(filename, ".bmx")
 
         menu.message("Info", "Saving...")
         menu.restore_palette()   ; note: could also reconstruct the original palette in a buffer and let bmx.save() use that...

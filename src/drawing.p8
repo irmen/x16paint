@@ -132,7 +132,7 @@ drawing {
                         gfx_lores.safe_disc(mouse_drag_start_x, mouse_drag_start_y, radius(mouse_drag_start_x, mouse_drag_start_y, mx, my), color)
                     }
                     TOOL_FILL -> {
-                        gfx_lores.fill(cx16.r0, cx16.r1L, color)
+                        gfx_lores.fill(cx16.r0, cx16.r1L, color, 2)     ; use ram bank 2 as flood fill stack
                     }
                 }
                 dragging_with_button = 0
