@@ -1,8 +1,8 @@
-.PHONY:  all clean zip run
+.PHONY:  all clean zip emu
 
 all: PAINT.PRG
 
-run: all
+emu: all
 	PULSE_LATENCY_MSEC=20 x16emu -scale 2 -quality best -run -prg PAINT.PRG
 
 clean:
